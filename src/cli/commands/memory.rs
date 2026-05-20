@@ -44,7 +44,7 @@ fn simple_timestamp() -> String {
     )
 }
 
-pub fn run(cmd: MemoryCmd) -> Result<()> {
+pub fn run(cmd: MemoryCmd, dry_run: bool) -> Result<()> {
     match cmd.command {
         MemorySubcommand::Update { task_id } => {
             let config_path = PathBuf::from(".orca").join("config.yaml");
@@ -76,6 +76,16 @@ pub fn run(cmd: MemoryCmd) -> Result<()> {
                 });
             task_state.status = "complete".to_string();
             task_state.updated_at = Some(now.clone());
+
+            if dry_run {
+                println!(
+                    "Dry run: would update memory for task {} (state: {}, note: tasks/{}.md)",
+                    task_id,
+                    state_path.display(),
+                    task_id
+                );
+                return Ok(());
+            }
 
             // Save state atomically
             state::save(&state, &state_path).with_context(|| "Failed to save state")?;

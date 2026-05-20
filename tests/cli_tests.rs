@@ -126,6 +126,54 @@ fn test_orca_init_creates_workspace() {
 }
 
 #[test]
+fn test_orca_init_dry_run_command_level() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args([
+        "init",
+        "--dry-run",
+        "--project-name",
+        "Orca Test Project",
+        "--repo",
+        ".",
+    ]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Dry run"));
+
+    let orca = tmp.path().join(".orca");
+    assert!(
+        !orca.exists(),
+        "init --dry-run must not create .orca/ directory"
+    );
+}
+
+#[test]
+fn test_orca_init_dry_run_global() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args([
+        "--dry-run",
+        "init",
+        "--project-name",
+        "Orca Test Project",
+        "--repo",
+        ".",
+    ]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Dry run"));
+
+    let orca = tmp.path().join(".orca");
+    assert!(
+        !orca.exists(),
+        "--dry-run init must not create .orca/ directory"
+    );
+}
+
+#[test]
 fn test_orca_config_validate() {
     let tmp = tempfile::tempdir().unwrap();
 

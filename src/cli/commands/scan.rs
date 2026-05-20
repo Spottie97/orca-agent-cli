@@ -13,7 +13,7 @@ pub struct ScanArgs {
     pub path: Option<PathBuf>,
 }
 
-pub fn run(args: ScanArgs) -> Result<()> {
+pub fn run(args: ScanArgs, dry_run: bool) -> Result<()> {
     let config_path = PathBuf::from(".orca").join("config.yaml");
     let config: Config = crate::config::load(&config_path)
         .with_context(|| format!("Failed to load config from {}", config_path.display()))?;
@@ -28,6 +28,22 @@ pub fn run(args: ScanArgs) -> Result<()> {
         scan_repo(&scan_path).with_context(|| format!("Failed to scan {}", scan_path.display()))?;
 
     let summary = render_scan_summary(&result);
+
+    if dry_run {
+        println!(
+            "Dry run: would write scan summary ({} files, {} dirs, type: {}) to {}",
+            result.total_files,
+            result.total_dirs,
+            result.project_type,
+            config
+                .project
+                .orca_dir
+                .join("scans")
+                .join("latest.md")
+                .display()
+        );
+        return Ok(());
+    }
 
     // Write to memory
     let store = MemoryStore::new(&config.project.orca_dir);

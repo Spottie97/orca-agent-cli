@@ -86,7 +86,7 @@ impl TaskGraph {
     }
 }
 
-pub fn run(args: PlanArgs) -> Result<()> {
+pub fn run(args: PlanArgs, dry_run: bool) -> Result<()> {
     let config_path = PathBuf::from(".orca").join("config.yaml");
     let config: Config = crate::config::load(&config_path)
         .with_context(|| format!("Failed to load config from {}", config_path.display()))?;
@@ -113,6 +113,16 @@ pub fn run(args: PlanArgs) -> Result<()> {
     let output_path = config.project.orca_dir.join("task-graph.yaml");
     let yaml =
         serde_yaml::to_string(&graph).with_context(|| "Failed to serialize task graph to YAML")?;
+
+    if dry_run {
+        println!(
+            "Dry run: would write task graph to {} ({} tasks)",
+            output_path.display(),
+            graph.tasks.len()
+        );
+        return Ok(());
+    }
+
     safe_write(&output_path, &yaml)
         .with_context(|| format!("Failed to write task graph to {}", output_path.display()))?;
 

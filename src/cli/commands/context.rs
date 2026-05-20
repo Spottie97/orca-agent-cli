@@ -21,7 +21,7 @@ pub struct ContextArgs {
     pub refresh: bool,
 }
 
-pub fn run(args: ContextArgs) -> Result<()> {
+pub fn run(args: ContextArgs, dry_run: bool) -> Result<()> {
     let config_path = PathBuf::from(".orca").join("config.yaml");
     let config: Config = crate::config::load(&config_path)
         .with_context(|| format!("Failed to load config from {}", config_path.display()))?;
@@ -81,6 +81,16 @@ pub fn run(args: ContextArgs) -> Result<()> {
     packet.constraints.push("Minimize token usage".to_string());
 
     let md = render_markdown(&packet);
+
+    if dry_run {
+        println!(
+            "Dry run: would write context packet to {} ({} bytes)",
+            output_path.display(),
+            md.len()
+        );
+        return Ok(());
+    }
+
     safe_write(&output_path, &md).with_context(|| {
         format!(
             "Failed to write context packet to {}",

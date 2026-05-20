@@ -76,15 +76,15 @@ pub fn run() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Init(args) => commands::init::run(args),
+        Commands::Init(args) => commands::init::run(args, cli.dry_run),
         Commands::Config(cmd) => commands::config::run(cmd),
-        Commands::Scan(args) => commands::scan::run(args),
-        Commands::Context(args) => commands::context::run(args),
+        Commands::Scan(args) => commands::scan::run(args, cli.dry_run),
+        Commands::Context(args) => commands::context::run(args, cli.dry_run),
         Commands::Route(args) => commands::route::run(args),
-        Commands::Plan(args) => commands::plan::run(args),
+        Commands::Plan(args) => commands::plan::run(args, cli.dry_run),
         Commands::Execute(args) => commands::execute::run(args, cli.dry_run, cli.yes),
         Commands::Review(args) => commands::review::run(args),
-        Commands::Memory(cmd) => commands::memory::run(cmd),
+        Commands::Memory(cmd) => commands::memory::run(cmd, cli.dry_run),
         Commands::Run(args) => commands::run::run(args, cli.dry_run, cli.yes),
         Commands::Status(args) => commands::status::run(args),
         Commands::Splash(args) => commands::splash::run(args),

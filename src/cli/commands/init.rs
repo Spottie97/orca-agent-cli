@@ -24,7 +24,7 @@ pub struct InitArgs {
     pub vault: Option<PathBuf>,
 }
 
-pub fn run(args: InitArgs) -> Result<()> {
+pub fn run(args: InitArgs, dry_run: bool) -> Result<()> {
     let repo_path = args.repo.unwrap_or_else(|| PathBuf::from("."));
     let repo_path = std::fs::canonicalize(&repo_path).unwrap_or(repo_path);
 
@@ -36,6 +36,20 @@ pub fn run(args: InitArgs) -> Result<()> {
     });
 
     let orca_dir = repo_path.join(".orca");
+
+    if dry_run {
+        println!(
+            "Dry run: would initialize Orca project workspace at {}",
+            orca_dir.display()
+        );
+        println!(
+            "  - Create directories: input, context-packets, prompts, results, memory, graph, logs"
+        );
+        println!("  - Write config.yaml with project name: {}", project_name);
+        println!("  - Write state.json with initial state");
+        println!("  - Write prompt library markdown files");
+        return Ok(());
+    }
 
     fs::ensure_dir(&orca_dir)?;
     fs::ensure_dir(&orca_dir.join("input"))?;

@@ -67,7 +67,9 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
     let context_path = orca_dir
         .join("context-packets")
         .join(format!("{}.md", args.task_id));
-    safe_write(&context_path, &render_markdown(&packet))?;
+    if !dry_run {
+        safe_write(&context_path, &render_markdown(&packet))?;
+    }
     println!("[2/5] Context packet written to {}", context_path.display());
 
     // Step 3: Check approval gates
@@ -118,35 +120,36 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
     );
 
     // Step 6: Update memory
-    let mut state = if state_path.exists() {
-        state::load(&state_path)?
-    } else {
-        State::default()
-    };
-    let now = format!("{:?}", std::time::SystemTime::now());
-    let task_state = state
-        .tasks
-        .entry(args.task_id.clone())
-        .or_insert_with(|| TaskState {
-            status: "complete".to_string(),
-            failure_count: 0,
-            assigned_provider: None,
-            assigned_model: None,
-            context_packet_path: Some(context_path.to_string_lossy().to_string()),
-            result_path: None,
-            updated_at: Some(now.clone()),
-        });
-    task_state.status = "complete".to_string();
-    task_state.updated_at = Some(now.clone());
-    state::save(&state, &state_path)?;
+    if !dry_run {
+        let mut state = if state_path.exists() {
+            state::load(&state_path)?
+        } else {
+            State::default()
+        };
+        let now = format!("{:?}", std::time::SystemTime::now());
+        let task_state = state
+            .tasks
+            .entry(args.task_id.clone())
+            .or_insert_with(|| TaskState {
+                status: "complete".to_string(),
+                failure_count: 0,
+                assigned_provider: None,
+                assigned_model: None,
+                context_packet_path: Some(context_path.to_string_lossy().to_string()),
+                result_path: None,
+                updated_at: Some(now.clone()),
+            });
+        task_state.status = "complete".to_string();
+        task_state.updated_at = Some(now.clone());
+        state::save(&state, &state_path)?;
 
-    let store = MemoryStore::new(orca_dir);
-    let history_entry = format!(
-        "\n## Run {}\n\n- Status: complete\n- Verdict: {}\n\n",
-        args.task_id, review_result.verdict
-    );
-    store.append_to_note("tasks", &args.task_id, &history_entry)?;
-
+        let store = MemoryStore::new(orca_dir);
+        let history_entry = format!(
+            "\n## Run {}\n\n- Status: complete\n- Verdict: {}\n\n",
+            args.task_id, review_result.verdict
+        );
+        store.append_to_note("tasks", &args.task_id, &history_entry)?;
+    }
     println!("Memory updated.");
     println!("=== Run complete ===");
 
