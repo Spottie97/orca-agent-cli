@@ -69,7 +69,10 @@ fn redact_url_credentials(input: &str) -> String {
                         .map(|i| host_start + i)
                         .unwrap_or(result.len());
                     let host = result[host_start..host_end].to_string();
-                    result.replace_range(absolute_start..host_end, &format!("{}[REDACTED]@{}", scheme, host));
+                    result.replace_range(
+                        absolute_start..host_end,
+                        &format!("{}[REDACTED]@{}", scheme, host),
+                    );
                     search_start = absolute_start + scheme.len() + "[REDACTED]@".len() + host.len();
                     continue;
                 }
@@ -79,7 +82,6 @@ fn redact_url_credentials(input: &str) -> String {
     }
     result
 }
-
 
 fn redact_line(line: &str) -> String {
     let trimmed = line.trim_start();
