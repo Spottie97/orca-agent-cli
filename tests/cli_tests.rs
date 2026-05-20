@@ -151,3 +151,23 @@ fn test_orca_route() {
         .success()
         .stdout(predicate::str::contains("Routing decision"));
 }
+
+#[test]
+fn test_orca_context() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["context", "TASK-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Context packet written to"));
+
+    let packet_path = tmp.path().join(".orca/context-packets/TASK-001.md");
+    assert!(packet_path.exists());
+}
