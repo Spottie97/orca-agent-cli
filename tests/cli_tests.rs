@@ -250,6 +250,29 @@ fn test_orca_scan() {
 }
 
 #[test]
+fn test_orca_context_dry_run() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["context", "--dry-run", "TASK-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Dry run: would write context packet"));
+
+    let packet_path = tmp.path().join(".orca/context-packets/TASK-001.md");
+    assert!(
+        !packet_path.exists(),
+        "context --dry-run must not create the packet file"
+    );
+}
+
+#[test]
 fn test_orca_execute_dry_run() {
     let tmp = tempfile::tempdir().unwrap();
 
@@ -311,6 +334,45 @@ fn test_orca_memory_update() {
 }
 
 #[test]
+fn test_orca_memory_update_dry_run() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    // Record initial state file mtime to detect modifications
+    let state_path = tmp.path().join(".orca/state.json");
+    let initial_mtime = std::fs::metadata(&state_path)
+        .unwrap()
+        .modified()
+        .unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["memory", "update", "--dry-run", "TASK-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Dry run: would update memory"));
+
+    let task_note = tmp.path().join(".orca/tasks/TASK-001.md");
+    assert!(
+        !task_note.exists(),
+        "memory update --dry-run must not create task note"
+    );
+
+    let final_mtime = std::fs::metadata(&state_path)
+        .unwrap()
+        .modified()
+        .unwrap();
+    assert_eq!(
+        initial_mtime, final_mtime,
+        "memory update --dry-run must not modify state.json"
+    );
+}
+
+#[test]
 fn test_orca_plan() {
     let tmp = tempfile::tempdir().unwrap();
 
@@ -348,10 +410,56 @@ fn test_orca_run_dry_run() {
     cmd.current_dir(&tmp);
     cmd.assert()
         .success()
-        .stdout(predicate::str::contains("Orca Run: TASK-001"))
-        .stdout(predicate::str::contains("Context packet written to"))
-        .stdout(predicate::str::contains("Execution (dry-run)"))
-        .stdout(predicate::str::contains("Run complete"));
+        .stdout(predicate::str::contains("Orca Run (dry-run): TASK-001"))
+        .stdout(predicate::str::contains("would write context packet to"))
+        .stdout(predicate::str::contains("Dry run: would execute provider"))
+        .stdout(predicate::str::contains("would update memory"))
+        .stdout(predicate::str::contains("Dry run complete"))
+        .stdout(predicate::str::contains("no files were changed"));
+}
+
+#[test]
+fn test_orca_run_dry_run_no_misleading_output() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["run", "--dry-run", "TASK-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Context packet written to").not())
+        .stdout(predicate::str::contains("Memory updated.").not())
+        .stdout(predicate::str::contains("Run complete").not());
+
+    // Verify no files were created/modified
+    let context_path = tmp.path().join(".orca/context-packets/TASK-001.md");
+    assert!(!context_path.exists());
+    let task_note = tmp.path().join(".orca/tasks/TASK-001.md");
+    assert!(!task_note.exists());
+}
+
+#[test]
+fn test_orca_run_dry_run_global() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["--dry-run", "run", "TASK-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("would write context packet to"))
+        .stdout(predicate::str::contains("would update memory"))
+        .stdout(predicate::str::contains("Dry run complete"));
 }
 
 #[test]

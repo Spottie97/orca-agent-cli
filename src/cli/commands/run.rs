@@ -32,7 +32,11 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
     let orca_dir = &config.project.orca_dir;
     let state_path = orca_dir.join("state.json");
 
-    println!("=== Orca Run: {} ===", args.task_id);
+    if dry_run {
+        println!("=== Orca Run (dry-run): {} ===", args.task_id);
+    } else {
+        println!("=== Orca Run: {} ===", args.task_id);
+    }
 
     // Step 1: Build task
     let task = Task {
@@ -49,7 +53,11 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
         failure_count: 0,
         acceptance_criteria: Vec::new(),
     };
-    println!("[1/5] Task created: {}", args.task_id);
+    if dry_run {
+        println!("[1/5] Dry run: would create/load task {}", args.task_id);
+    } else {
+        println!("[1/5] Task created: {}", args.task_id);
+    }
 
     // Step 2: Generate context packet
     let decision = route(&task, &config);
@@ -70,7 +78,14 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
     if !dry_run {
         safe_write(&context_path, &render_markdown(&packet))?;
     }
-    println!("[2/5] Context packet written to {}", context_path.display());
+    if dry_run {
+        println!(
+            "[2/5] Dry run: would write context packet to {}",
+            context_path.display()
+        );
+    } else {
+        println!("[2/5] Context packet written to {}", context_path.display());
+    }
 
     // Step 3: Check approval gates
     let approval_config = ApprovalConfig {
@@ -80,18 +95,29 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
     };
     match check_approval(&task, &decision, &approval_config, yes) {
         ApprovalCheck::Block(reason) => {
-            println!("[3/5] Approval gate blocked: {}", reason);
+            if dry_run {
+                println!("[3/5] Dry run: approval gate would block: {}", reason);
+            } else {
+                println!("[3/5] Approval gate blocked: {}", reason);
+            }
             println!("Loop halted.");
             return Ok(());
         }
         ApprovalCheck::Pass => {
-            println!("[3/5] Approval gate passed");
+            if dry_run {
+                println!("[3/5] Dry run: would check approval gate (would pass)");
+            } else {
+                println!("[3/5] Approval gate passed");
+            }
         }
     }
 
     // Step 4: Execute (dry-run uses mock)
     if dry_run {
-        println!("[4/5] Execution (dry-run):");
+        println!(
+            "[4/5] Dry run: would execute provider {} (mock)",
+            decision.provider
+        );
         let provider = MockProvider::default();
         let request = ProviderRequest {
             task_id: args.task_id.clone(),
@@ -114,10 +140,17 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
 
     // Step 5: Review
     let review_result = review_task(&task);
-    println!(
-        "[5/5] Review: {} — {}",
-        review_result.verdict, review_result.recommended_next_step
-    );
+    if dry_run {
+        println!(
+            "[5/5] Dry run: would review result (verdict: {} — {})",
+            review_result.verdict, review_result.recommended_next_step
+        );
+    } else {
+        println!(
+            "[5/5] Review: {} — {}",
+            review_result.verdict, review_result.recommended_next_step
+        );
+    }
 
     // Step 6: Update memory
     if !dry_run {
@@ -150,8 +183,13 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
         );
         store.append_to_note("tasks", &args.task_id, &history_entry)?;
     }
-    println!("Memory updated.");
-    println!("=== Run complete ===");
+    if dry_run {
+        println!("Dry run: would update memory (state + task history)");
+        println!("=== Dry run complete; no files were changed ===");
+    } else {
+        println!("Memory updated.");
+        println!("=== Run complete ===");
+    }
 
     Ok(())
 }
