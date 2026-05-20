@@ -41,7 +41,7 @@ fn provider_enabled(kind: ProviderKind, models: &ModelsConfig) -> bool {
     match kind {
         ProviderKind::Ollama => models.ollama.enabled,
         ProviderKind::Anthropic => models.claude.enabled,
-        ProviderKind::OpenAi => models.codex.enabled,
+        ProviderKind::OpenAi => models.openai.enabled,
         ProviderKind::Cursor => models.cursor.enabled,
         _ => true,
     }
@@ -61,7 +61,7 @@ fn model_for_provider(kind: ProviderKind, models: &ModelsConfig) -> String {
     match kind {
         ProviderKind::Ollama => models.ollama.default_model.clone(),
         ProviderKind::Anthropic => models.claude.default_model.clone(),
-        ProviderKind::OpenAi => models.codex.default_model.clone(),
+        ProviderKind::OpenAi => models.openai.default_model.clone(),
         ProviderKind::Cursor => models.cursor.composer_model_id.clone(),
         ProviderKind::Manual => "manual".to_string(),
         _ => "mock".to_string(),

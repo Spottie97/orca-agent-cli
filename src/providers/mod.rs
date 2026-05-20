@@ -1,6 +1,7 @@
 pub mod anthropic;
 pub mod command;
 pub mod cursor;
+pub mod factory;
 pub mod mock;
 pub mod ollama;
 pub mod openai;

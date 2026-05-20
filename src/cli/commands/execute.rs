@@ -5,8 +5,8 @@ use clap::Args;
 
 use crate::approvals::{check_approval, ApprovalCheck, ApprovalConfig};
 use crate::config::schema::Config;
-use crate::providers::mock::MockProvider;
-use crate::providers::traits::{Provider, ProviderRequest};
+use crate::providers::factory::create_provider;
+use crate::providers::traits::ProviderRequest;
 use crate::router::route;
 use crate::tasks::resolve_task_from_graph;
 
@@ -67,7 +67,7 @@ pub fn run(args: ExecuteArgs, dry_run: bool, yes: bool) -> Result<()> {
             }
         );
 
-        let provider = MockProvider::default();
+        let provider = create_provider(decision.provider, &config);
         let request = ProviderRequest {
             task_id: args.task_id.clone(),
             prompt: format!("Dry-run execution for task {}", args.task_id),
@@ -83,9 +83,8 @@ pub fn run(args: ExecuteArgs, dry_run: bool, yes: bool) -> Result<()> {
         println!("No API calls were made.");
         println!("=== END DRY RUN ===");
     } else {
-        // MVP: use mock provider for all executions until real adapters are built
         let rt = tokio::runtime::Runtime::new()?;
-        let provider = MockProvider::default();
+        let provider = create_provider(decision.provider, &config);
         let request = ProviderRequest {
             task_id: args.task_id.clone(),
             prompt: format!("Execute task {}", args.task_id),

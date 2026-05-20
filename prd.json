@@ -653,6 +653,33 @@
         "cargo build"
       ],
       "passes": true
+    },
+    {
+      "id": "PHASE2-001",
+      "title": "Add real OpenAI-compatible provider execution",
+      "description": "Implement real HTTP execution for OpenAI-compatible endpoints (local llama.cpp server, etc.) using the existing provider abstraction. Add config-driven OpenAiModelConfig with base_url, api_key_env_var, timeout, max_input_tokens, max_output_tokens. Implement provider factory to instantiate correct provider from routing decision. Wire execute and run commands to use factory. Preserve mock provider and dry-run behavior. Add wiremock tests for request shape, response parsing, HTTP errors, auth errors, timeouts. Ensure secrets are redacted in errors.",
+      "acceptance_criteria": [
+        "OpenAiProvider executes real HTTP calls to /v1/chat/completions",
+        "Config schema includes OpenAiModelConfig with all required fields",
+        "Provider factory creates correct provider from routing decision",
+        "execute.rs uses factory instead of hardcoded MockProvider",
+        "run.rs uses factory for real execution",
+        "Dry-run performs zero provider HTTP calls",
+        "Provider handles HTTP errors with clear messages",
+        "Provider handles auth errors (401) distinctly",
+        "Provider handles timeouts",
+        "Secrets are redacted in error messages",
+        "Config backward compatibility: missing openai section parses with defaults",
+        "Config roundtrip preserves openai settings",
+        "Existing MVP tests pass"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": true
     }
   ]
 }

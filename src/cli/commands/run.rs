@@ -8,6 +8,7 @@ use crate::approvals::{check_approval, ApprovalCheck, ApprovalConfig};
 use crate::config::schema::Config;
 use crate::context::{render_markdown, ContextPacket};
 use crate::memory::MemoryStore;
+use crate::providers::factory::create_provider;
 use crate::providers::mock::MockProvider;
 use crate::providers::traits::{CostEstimate, Provider, ProviderRequest};
 use crate::review::review_task;
@@ -188,7 +189,29 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
         }
     } else {
         if !args.json {
-            println!("[4/5] Execution (real mode not yet implemented in MVP)");
+            println!("[4/5] Executing provider {} ...", decision.provider);
+        }
+        let rt = tokio::runtime::Runtime::new()?;
+        let provider = create_provider(decision.provider, &config);
+        let request = ProviderRequest {
+            task_id: args.task_id.clone(),
+            prompt: format!("Execute task {}", args.task_id),
+            model_id: Some(decision.model.clone()),
+            context: None,
+            max_tokens: None,
+        };
+        let response = rt.block_on(provider.execute(request))?;
+        output.estimated_cost = Some(provider.estimate_cost(&ProviderRequest {
+            task_id: args.task_id.clone(),
+            prompt: response.output.clone(),
+            model_id: Some(decision.model.clone()),
+            context: None,
+            max_tokens: None,
+        }));
+        if !args.json {
+            println!("  Provider: {}", response.provider);
+            println!("  Model: {}", response.model_id);
+            println!("  Status: {}", response.status);
         }
     }
 

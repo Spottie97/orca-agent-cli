@@ -61,6 +61,8 @@ pub struct ModelsConfig {
     #[serde(default)]
     pub claude: ClaudeModelConfig,
     #[serde(default)]
+    pub openai: OpenAiModelConfig,
+    #[serde(default)]
     pub codex: CodexModelConfig,
     #[serde(default)]
     pub cursor: CursorModelConfig,
@@ -113,6 +115,42 @@ impl Default for ClaudeModelConfig {
             default_model: default_claude_model(),
             role: default_claude_role(),
             approval_required_for_large_context: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OpenAiModelConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default = "default_openai_base_url")]
+    pub base_url: String,
+    #[serde(default = "default_openai_model")]
+    pub default_model: String,
+    #[serde(default = "default_openai_api_key_env")]
+    pub api_key_env_var: String,
+    #[serde(default = "default_openai_role")]
+    pub role: String,
+    #[serde(default = "default_openai_timeout")]
+    pub timeout_seconds: u64,
+    #[serde(default = "default_openai_max_input_tokens")]
+    pub max_input_tokens: u32,
+    #[serde(default = "default_openai_max_output_tokens")]
+    pub max_output_tokens: u32,
+}
+
+impl Default for OpenAiModelConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            base_url: default_openai_base_url(),
+            default_model: default_openai_model(),
+            api_key_env_var: default_openai_api_key_env(),
+            role: default_openai_role(),
+            timeout_seconds: default_openai_timeout(),
+            max_input_tokens: default_openai_max_input_tokens(),
+            max_output_tokens: default_openai_max_output_tokens(),
         }
     }
 }
@@ -286,6 +324,34 @@ fn default_codex_model() -> String {
 
 fn default_codex_role() -> String {
     "scoped_execution".to_string()
+}
+
+fn default_openai_base_url() -> String {
+    "http://localhost:8080".to_string()
+}
+
+fn default_openai_model() -> String {
+    "llama3.1".to_string()
+}
+
+fn default_openai_api_key_env() -> String {
+    "OPENAI_API_KEY".to_string()
+}
+
+fn default_openai_role() -> String {
+    "generic".to_string()
+}
+
+fn default_openai_timeout() -> u64 {
+    120
+}
+
+fn default_openai_max_input_tokens() -> u32 {
+    4096
+}
+
+fn default_openai_max_output_tokens() -> u32 {
+    2048
 }
 
 fn default_cursor_composer_model() -> String {
