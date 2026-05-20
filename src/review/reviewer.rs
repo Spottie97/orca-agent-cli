@@ -146,20 +146,18 @@ fn contains_refusal_patterns(output: &str) -> bool {
 
 /// Check whether the output appears to satisfy the acceptance criteria.
 ///
-/// For criteria containing "exactly" or "must be", extracts the expected literal
-/// substring and checks for exact containment. Otherwise falls back to heuristic
-/// word matching.
+/// For criteria classified as exact-output, extracts the expected literal
+/// string and checks for byte-for-byte equality after trimming outer whitespace.
+/// Otherwise falls back to heuristic word matching.
 fn check_acceptance_criteria(output: &str, criteria: &[String]) -> Vec<String> {
     let lower_output = output.to_lowercase();
     let mut unmet = Vec::new();
 
     for criterion in criteria {
-        let key_phrase = criterion.to_lowercase();
-
         // Exact-match branch: criterion asks for an exact string
-        if key_phrase.contains("exactly") || key_phrase.contains("must be") {
-            if let Some(expected) = extract_exact_expected_value(&key_phrase) {
-                if !lower_output.contains(&expected) {
+        if is_exact_output_criterion(criterion) {
+            if let Some(expected) = extract_exact_expected_value(criterion) {
+                if output.trim() != expected {
                     unmet.push(criterion.clone());
                 }
                 continue;
@@ -167,6 +165,7 @@ fn check_acceptance_criteria(output: &str, criteria: &[String]) -> Vec<String> {
         }
 
         // Fallback heuristic: check if at least one distinctive word appears
+        let key_phrase = criterion.to_lowercase();
         let words: Vec<&str> = key_phrase
             .split_whitespace()
             .filter(|w| {
@@ -200,31 +199,77 @@ fn check_acceptance_criteria(output: &str, criteria: &[String]) -> Vec<String> {
     unmet
 }
 
+/// Returns true when the criterion clearly asks for exact output.
+fn is_exact_output_criterion(criterion: &str) -> bool {
+    let lower = criterion.to_lowercase();
+    lower.contains("exactly")
+        || lower.contains("must equal")
+        || lower.contains("should equal")
+        || lower.contains("equals exactly")
+}
+
 /// Extract the expected literal value from an exact-match criterion.
-/// Handles quoted strings and text after "exactly" / "must be".
-fn extract_exact_expected_value(criterion_lower: &str) -> Option<String> {
-    // Look for quoted substring
-    if let Some(start) = criterion_lower.find('"') {
-        if let Some(end) = criterion_lower[start + 1..].find('"') {
-            let quoted = &criterion_lower[start + 1..start + 1 + end];
+/// Works on the original (non-lowercased) string so case is preserved.
+///
+/// Supported forms:
+/// - Quoted double/single strings: preserves all punctuation inside quotes.
+/// - Unquoted sentences: strips one trailing sentence punctuation mark.
+/// - Colon and keyword forms: strips leading colon/whitespace after keyword.
+fn extract_exact_expected_value(criterion: &str) -> Option<String> {
+    // Look for quoted substring in the original (preserves case and punctuation)
+    if let Some(start) = criterion.find('"') {
+        if let Some(end) = criterion[start + 1..].find('"') {
+            let quoted = &criterion[start + 1..start + 1 + end];
             if !quoted.is_empty() {
                 return Some(quoted.to_string());
             }
         }
     }
 
-    // Look for text after "exactly"
-    if let Some(pos) = criterion_lower.find("exactly ") {
-        let rest = &criterion_lower[pos + 8..];
+    if let Some(start) = criterion.find('\'') {
+        if let Some(end) = criterion[start + 1..].find('\'') {
+            let quoted = &criterion[start + 1..start + 1 + end];
+            if !quoted.is_empty() {
+                return Some(quoted.to_string());
+            }
+        }
+    }
+
+    // Search in a lowercased copy for keywords; byte positions are identical
+    // for ASCII, which all keywords are.
+    let lower = criterion.to_lowercase();
+    let keywords = [
+        "output must be exactly",
+        "reply with exactly",
+        "response must be exactly",
+        "answer must be exactly",
+        "must equal",
+        "should equal",
+        "equals exactly",
+    ];
+
+    for kw in &keywords {
+        if let Some(pos) = lower.find(kw) {
+            let after = &criterion[pos + kw.len()..];
+            let rest = after.trim_start().trim_start_matches(':').trim_start();
+            let trimmed = rest.trim().trim_end_matches(['.', '!', '?']);
+            if !trimmed.is_empty() {
+                return Some(trimmed.to_string());
+            }
+        }
+    }
+
+    // Fallbacks for backward compatibility with simpler phrasing
+    if let Some(pos) = lower.find("exactly:") {
+        let rest = &criterion[pos + 8..];
         let trimmed = rest.trim().trim_end_matches(['.', '!', '?']);
         if !trimmed.is_empty() {
             return Some(trimmed.to_string());
         }
     }
 
-    // Look for text after "must be"
-    if let Some(pos) = criterion_lower.find("must be ") {
-        let rest = &criterion_lower[pos + 8..];
+    if let Some(pos) = lower.find("exactly ") {
+        let rest = &criterion[pos + 8..];
         let trimmed = rest.trim().trim_end_matches(['.', '!', '?']);
         if !trimmed.is_empty() {
             return Some(trimmed.to_string());
@@ -657,5 +702,109 @@ mod tests {
         );
         assert_eq!(result.verdict, ReviewVerdict::Reject);
         assert!(!result.accepted);
+    }
+
+    // HOTFIX-007: exact-output acceptance criteria unit tests
+
+    #[test]
+    fn test_exact_criterion_passes_with_exact_output() {
+        let criteria = vec!["Output must be exactly ORCA_CLOUD_OK.".to_string()];
+        let unmet = check_acceptance_criteria("ORCA_CLOUD_OK", &criteria);
+        assert!(unmet.is_empty());
+    }
+
+    #[test]
+    fn test_exact_criterion_fails_with_trailing_period() {
+        let criteria = vec!["Output must be exactly ORCA_CLOUD_OK.".to_string()];
+        let unmet = check_acceptance_criteria("ORCA_CLOUD_OK.", &criteria);
+        assert_eq!(
+            unmet,
+            vec!["Output must be exactly ORCA_CLOUD_OK.".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_exact_criterion_fails_with_extra_words() {
+        let criteria = vec!["Output must be exactly ORCA_CLOUD_OK.".to_string()];
+        let unmet = check_acceptance_criteria("The answer is ORCA_CLOUD_OK", &criteria);
+        assert_eq!(
+            unmet,
+            vec!["Output must be exactly ORCA_CLOUD_OK.".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_exact_criterion_fails_with_quotes() {
+        let criteria = vec!["Output must be exactly ORCA_CLOUD_OK.".to_string()];
+        let unmet = check_acceptance_criteria("\"ORCA_CLOUD_OK\"", &criteria);
+        assert_eq!(
+            unmet,
+            vec!["Output must be exactly ORCA_CLOUD_OK.".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_exact_criterion_fails_with_markdown_fence() {
+        let criteria = vec!["Output must be exactly ORCA_CLOUD_OK.".to_string()];
+        let unmet = check_acceptance_criteria("```ORCA_CLOUD_OK```", &criteria);
+        assert_eq!(
+            unmet,
+            vec!["Output must be exactly ORCA_CLOUD_OK.".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_exact_criterion_quoted_expected_passes_with_period() {
+        let criteria = vec!["Output must be exactly \"ORCA_CLOUD_OK.\"".to_string()];
+        let unmet = check_acceptance_criteria("ORCA_CLOUD_OK.", &criteria);
+        assert!(unmet.is_empty());
+    }
+
+    #[test]
+    fn test_exact_criterion_quoted_expected_fails_without_period() {
+        let criteria = vec!["Output must be exactly \"ORCA_CLOUD_OK.\"".to_string()];
+        let unmet = check_acceptance_criteria("ORCA_CLOUD_OK", &criteria);
+        assert_eq!(
+            unmet,
+            vec!["Output must be exactly \"ORCA_CLOUD_OK.\"".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_exact_criterion_reply_with_exactly_passes() {
+        let criteria = vec!["Reply with exactly ORCA_CLOUD_OK.".to_string()];
+        let unmet = check_acceptance_criteria("ORCA_CLOUD_OK", &criteria);
+        assert!(unmet.is_empty());
+    }
+
+    #[test]
+    fn test_exact_criterion_must_equal_passes() {
+        let criteria = vec!["The response must equal ORCA_CLOUD_OK.".to_string()];
+        let unmet = check_acceptance_criteria("ORCA_CLOUD_OK", &criteria);
+        assert!(unmet.is_empty());
+    }
+
+    #[test]
+    fn test_exact_criterion_colon_form_passes() {
+        let criteria = vec!["The output must be exactly: ORCA_CLOUD_OK".to_string()];
+        let unmet = check_acceptance_criteria("ORCA_CLOUD_OK", &criteria);
+        assert!(unmet.is_empty());
+    }
+
+    #[test]
+    fn test_exact_criterion_passes_with_outer_whitespace() {
+        let criteria = vec!["Output must be exactly ORCA_CLOUD_OK.".to_string()];
+        let unmet = check_acceptance_criteria("  ORCA_CLOUD_OK  ", &criteria);
+        assert!(unmet.is_empty());
+    }
+
+    #[test]
+    fn test_exact_criterion_fails_with_wrong_case() {
+        let criteria = vec!["Output must be exactly ORCA_CLOUD_OK.".to_string()];
+        let unmet = check_acceptance_criteria("orca_cloud_ok", &criteria);
+        assert_eq!(
+            unmet,
+            vec!["Output must be exactly ORCA_CLOUD_OK.".to_string()]
+        );
     }
 }

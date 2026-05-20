@@ -65,3 +65,4 @@ Stories completed:
 - PHASE2-008: Prepare Cursor Composer bridge design only
 - HOTFIX-005: Add optional bearer auth to OllamaProvider
 - HOTFIX-006: Fix acceptance criteria propagation and make review fail closed (3a62bbd)
+- HOTFIX-007: Fix exact-output acceptance criteria enforcement

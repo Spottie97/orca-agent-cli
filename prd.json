@@ -772,6 +772,31 @@
         "cargo build"
       ],
       "passes": true
+    },
+    {
+      "id": "HOTFIX-007",
+      "title": "Fix exact-output acceptance criteria enforcement",
+      "description": "Exact-output acceptance criteria were evaluated with substring containment instead of byte-for-byte equality. Outputs like 'ORCA_CLOUD_OK.' and 'The answer is ORCA_CLOUD_OK' were incorrectly accepted. Implement explicit exact-output criterion detection, extract expected values robustly (quoted and unquoted), and enforce case-sensitive exact matching after minimal whitespace trimming. Preserve refusal detection and fail-closed behavior.",
+      "acceptance_criteria": [
+        "Exact-output criteria use byte-for-byte equality, not substring matching",
+        "Quoted expected values preserve punctuation and case",
+        "Unquoted expected values strip one trailing sentence punctuation mark",
+        "Case-sensitive matching rejects different-case output",
+        "Outputs with extra words, quotes, markdown fences, or trailing punctuation are rejected",
+        "Outer whitespace trimming on actual output is allowed",
+        "Refusal/missing-context detection continues to work",
+        "Review still fails closed when result is missing or status is failure",
+        "Review artifact populates execution fields when result exists",
+        "12 unit tests cover exact-match detection, extraction, and comparison",
+        "4 integration tests cover exact accept, trailing-period reject, extra-words reject, and refusal reject"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": true
     }
   ]
 }

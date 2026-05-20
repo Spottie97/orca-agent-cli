@@ -1380,3 +1380,294 @@ fn test_orca_review_loads_execution_result_fields() {
         "review artifact must have a verdict"
     );
 }
+
+// HOTFIX-007 integration tests: exact-output acceptance criteria enforcement
+
+#[test]
+fn test_orca_review_exact_output_accepts_when_exact() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let graph = serde_json::json!({
+        "version": "1.0",
+        "project": "Test",
+        "tasks": [
+            {
+                "id": "TASK-EXACT-001",
+                "title": "Exact output test",
+                "description": "Reply with exactly ORCA_CLOUD_OK.",
+                "task_type": "planning",
+                "complexity": "low",
+                "risk": "low",
+                "dependencies": [],
+                "status": "pending",
+                "acceptance_criteria": [
+                    "Output must be exactly ORCA_CLOUD_OK."
+                ]
+            }
+        ]
+    });
+    let graph_path = tmp.path().join(".orca/task-graph.yaml");
+    std::fs::write(&graph_path, serde_yaml::to_string(&graph).unwrap()).unwrap();
+
+    let result = serde_json::json!({
+        "task_id": "TASK-EXACT-001",
+        "provider": "mock",
+        "model": "mock-model",
+        "timestamp": "now",
+        "status": "success",
+        "output": "ORCA_CLOUD_OK",
+        "duration_ms": 100,
+        "input_tokens": 10,
+        "output_tokens": 5
+    });
+    let results_dir = tmp.path().join(".orca/results");
+    std::fs::create_dir_all(&results_dir).unwrap();
+    std::fs::write(
+        results_dir.join("TASK-EXACT-001.json"),
+        serde_json::to_string_pretty(&result).unwrap(),
+    )
+    .unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["review", "TASK-EXACT-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("accept"));
+
+    let review_path = tmp.path().join(".orca/reviews/TASK-EXACT-001.json");
+    assert!(review_path.exists());
+    let contents = std::fs::read_to_string(&review_path).unwrap();
+    let artifact: serde_json::Value = serde_json::from_str(&contents).unwrap();
+    assert_eq!(artifact["verdict"], "accept");
+    assert_eq!(artifact["accepted"], true);
+    assert!(artifact["execution_status"].is_string());
+    assert!(artifact["unmet_acceptance_criteria"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+}
+
+#[test]
+fn test_orca_review_exact_output_rejects_with_trailing_period() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let graph = serde_json::json!({
+        "version": "1.0",
+        "project": "Test",
+        "tasks": [
+            {
+                "id": "TASK-EXACT-002",
+                "title": "Exact output test",
+                "description": "Reply with exactly ORCA_CLOUD_OK.",
+                "task_type": "planning",
+                "complexity": "low",
+                "risk": "low",
+                "dependencies": [],
+                "status": "pending",
+                "acceptance_criteria": [
+                    "Output must be exactly ORCA_CLOUD_OK."
+                ]
+            }
+        ]
+    });
+    let graph_path = tmp.path().join(".orca/task-graph.yaml");
+    std::fs::write(&graph_path, serde_yaml::to_string(&graph).unwrap()).unwrap();
+
+    let result = serde_json::json!({
+        "task_id": "TASK-EXACT-002",
+        "provider": "mock",
+        "model": "mock-model",
+        "timestamp": "now",
+        "status": "success",
+        "output": "ORCA_CLOUD_OK.",
+        "duration_ms": 100,
+        "input_tokens": 10,
+        "output_tokens": 5
+    });
+    let results_dir = tmp.path().join(".orca/results");
+    std::fs::create_dir_all(&results_dir).unwrap();
+    std::fs::write(
+        results_dir.join("TASK-EXACT-002.json"),
+        serde_json::to_string_pretty(&result).unwrap(),
+    )
+    .unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["review", "TASK-EXACT-002"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("reject"));
+
+    let review_path = tmp.path().join(".orca/reviews/TASK-EXACT-002.json");
+    assert!(review_path.exists());
+    let contents = std::fs::read_to_string(&review_path).unwrap();
+    let artifact: serde_json::Value = serde_json::from_str(&contents).unwrap();
+    assert_eq!(artifact["verdict"], "reject");
+    assert_eq!(artifact["accepted"], false);
+    assert!(artifact["execution_status"].is_string());
+    let unmet = artifact["unmet_acceptance_criteria"].as_array().unwrap();
+    assert!(
+        unmet
+            .iter()
+            .any(|u| u.as_str().unwrap().contains("exactly")),
+        "unmet_acceptance_criteria should contain the exact criterion"
+    );
+}
+
+#[test]
+fn test_orca_review_exact_output_rejects_with_extra_words() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let graph = serde_json::json!({
+        "version": "1.0",
+        "project": "Test",
+        "tasks": [
+            {
+                "id": "TASK-EXACT-003",
+                "title": "Exact output test",
+                "description": "Reply with exactly ORCA_CLOUD_OK.",
+                "task_type": "planning",
+                "complexity": "low",
+                "risk": "low",
+                "dependencies": [],
+                "status": "pending",
+                "acceptance_criteria": [
+                    "Output must be exactly ORCA_CLOUD_OK."
+                ]
+            }
+        ]
+    });
+    let graph_path = tmp.path().join(".orca/task-graph.yaml");
+    std::fs::write(&graph_path, serde_yaml::to_string(&graph).unwrap()).unwrap();
+
+    let result = serde_json::json!({
+        "task_id": "TASK-EXACT-003",
+        "provider": "mock",
+        "model": "mock-model",
+        "timestamp": "now",
+        "status": "success",
+        "output": "The answer is ORCA_CLOUD_OK",
+        "duration_ms": 100,
+        "input_tokens": 10,
+        "output_tokens": 5
+    });
+    let results_dir = tmp.path().join(".orca/results");
+    std::fs::create_dir_all(&results_dir).unwrap();
+    std::fs::write(
+        results_dir.join("TASK-EXACT-003.json"),
+        serde_json::to_string_pretty(&result).unwrap(),
+    )
+    .unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["review", "TASK-EXACT-003"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("reject"));
+
+    let review_path = tmp.path().join(".orca/reviews/TASK-EXACT-003.json");
+    assert!(review_path.exists());
+    let contents = std::fs::read_to_string(&review_path).unwrap();
+    let artifact: serde_json::Value = serde_json::from_str(&contents).unwrap();
+    assert_eq!(artifact["verdict"], "reject");
+    assert_eq!(artifact["accepted"], false);
+    assert!(artifact["execution_status"].is_string());
+    let unmet = artifact["unmet_acceptance_criteria"].as_array().unwrap();
+    assert!(
+        unmet
+            .iter()
+            .any(|u| u.as_str().unwrap().contains("exactly")),
+        "unmet_acceptance_criteria should contain the exact criterion"
+    );
+}
+
+#[test]
+fn test_orca_review_exact_output_rejects_refusal() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let graph = serde_json::json!({
+        "version": "1.0",
+        "project": "Test",
+        "tasks": [
+            {
+                "id": "TASK-EXACT-004",
+                "title": "Exact output test",
+                "description": "Reply with exactly ORCA_CLOUD_OK.",
+                "task_type": "planning",
+                "complexity": "low",
+                "risk": "low",
+                "dependencies": [],
+                "status": "pending",
+                "acceptance_criteria": [
+                    "Output must be exactly ORCA_CLOUD_OK."
+                ]
+            }
+        ]
+    });
+    let graph_path = tmp.path().join(".orca/task-graph.yaml");
+    std::fs::write(&graph_path, serde_yaml::to_string(&graph).unwrap()).unwrap();
+
+    let result = serde_json::json!({
+        "task_id": "TASK-EXACT-004",
+        "provider": "mock",
+        "model": "mock-model",
+        "timestamp": "now",
+        "status": "success",
+        "output": "I don't have access to your task management system or enough context to complete TASK-EXACT-004.",
+        "duration_ms": 100,
+        "input_tokens": 10,
+        "output_tokens": 5
+    });
+    let results_dir = tmp.path().join(".orca/results");
+    std::fs::create_dir_all(&results_dir).unwrap();
+    std::fs::write(
+        results_dir.join("TASK-EXACT-004.json"),
+        serde_json::to_string_pretty(&result).unwrap(),
+    )
+    .unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["review", "TASK-EXACT-004"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("reject"));
+
+    let review_path = tmp.path().join(".orca/reviews/TASK-EXACT-004.json");
+    assert!(review_path.exists());
+    let contents = std::fs::read_to_string(&review_path).unwrap();
+    let artifact: serde_json::Value = serde_json::from_str(&contents).unwrap();
+    assert_eq!(artifact["verdict"], "reject");
+    assert_eq!(artifact["accepted"], false);
+    assert!(
+        artifact["reasons"].as_array().unwrap().iter().any(|r| r
+            .as_str()
+            .unwrap()
+            .to_lowercase()
+            .contains("missing context")),
+        "refusal/missing-context reason should remain present"
+    );
+}
