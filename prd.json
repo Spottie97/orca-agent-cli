@@ -1,0 +1,588 @@
+{
+  "version": "1.0",
+  "project": "Orca Agent CLI",
+  "language": "Rust",
+  "edition": "2021",
+  "binary": "orca",
+  "crate": "orca-agent-cli",
+  "stories": [
+    {
+      "id": "ORCA-001",
+      "title": "Initialize Rust CLI project structure",
+      "description": "Create Cargo.toml, src/main.rs, src/lib.rs, and base module directories. Set up workspace with clap, tokio, serde, anyhow, thiserror, tracing, and other core dependencies.",
+      "acceptance_criteria": [
+        "Cargo.toml exists with correct metadata and dependencies",
+        "src/main.rs prints hello world via lib",
+        "src/lib.rs exists with module declarations",
+        "Directory structure for cli, config, router, providers, memory, context, tasks, review, approvals, prompts, utils exists",
+        "cargo build passes"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-002",
+      "title": "Add clap CLI shell with all MVP commands",
+      "description": "Implement clap derive-based CLI with subcommands: init, config, scan, context, route, plan, execute, review, memory, run, status. Include --dry-run, --config, --json flags. Ensure --help output is useful.",
+      "acceptance_criteria": [
+        "orca --help shows all commands",
+        "orca init --help works",
+        "orca config validate --help works",
+        "orca scan --help works",
+        "orca context --help works",
+        "orca route --help works",
+        "orca plan --help works",
+        "orca execute --help works",
+        "orca review --help works",
+        "orca memory --help works",
+        "orca run --help works",
+        "orca status --help works",
+        "cargo build passes"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-003",
+      "title": "Add typed config schema and loader",
+      "description": "Create Config struct with serde_yaml support. Define schema for project, execution, models, routing, context, memory sections. Implement config loader with env var substitution and helpful validation errors.",
+      "acceptance_criteria": [
+        "Config struct serializes/deserializes from YAML",
+        "Default config path is .orca/orca.config.yaml",
+        "Env var substitution works for secrets",
+        "Validation catches missing required fields",
+        "Config tests pass"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-004",
+      "title": "Implement orca init",
+      "description": "Implement the init command to create .orca/ directory structure, default config, state.json, memory directories, graph directories, and context-packets directory.",
+      "acceptance_criteria": [
+        "orca init creates .orca/",
+        "orca init writes default config",
+        "orca init creates memory, graph, context-packets subdirs",
+        "orca init creates state.json",
+        "orca init is idempotent (safe to run twice)",
+        "Tests pass"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-005",
+      "title": "Implement config validation and orca config validate",
+      "description": "Implement config validation logic and wire it to the config validate CLI command. Validate required paths, provider settings, and env var presence where configured.",
+      "acceptance_criteria": [
+        "orca config validate passes for valid config",
+        "orca config validate fails with clear error for invalid config",
+        "Validation catches missing repo path",
+        "Validation catches missing provider model IDs when provider is enabled",
+        "Tests cover valid and invalid configs"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-006",
+      "title": "Implement provider traits and shared types",
+      "description": "Define Provider trait, ProviderKind enum, ProviderCapability enum, ProviderRequest, ProviderResponse, CostEstimate, and ProviderError. Use thiserror for error variants.",
+      "acceptance_criteria": [
+        "Provider trait is defined with async methods",
+        "ProviderKind enum covers all MVP providers",
+        "ProviderCapability enum is extensible",
+        "CostEstimate has useful fields",
+        "ProviderError uses thiserror",
+        "Tests compile and pass"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-007",
+      "title": "Implement mock provider",
+      "description": "Create a mock provider adapter that implements the Provider trait. It should return deterministic responses for testing, work without API keys, and support dry-run mode.",
+      "acceptance_criteria": [
+        "Mock provider implements Provider trait",
+        "Mock provider returns deterministic responses",
+        "Mock provider works without any env vars",
+        "Mock provider supports capability queries",
+        "Provider mock tests pass"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-008",
+      "title": "Implement routing policy and decision types",
+      "description": "Create routing policy config, RoutingDecision struct, and the core router logic. Router should consider task type, complexity, risk, file count, previous failures, budget policy, and provider availability.",
+      "acceptance_criteria": [
+        "RoutingDecision struct exists with provider, model, reason, approval_required",
+        "Router selects Ollama for summaries",
+        "Router selects Claude for architecture",
+        "Router selects Cursor Composer for repo-aware tasks",
+        "Router selects Codex for scoped exact tasks",
+        "Router requires approval for premium",
+        "Router considers failure count for escalation",
+        "Routing tests pass"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-009",
+      "title": "Implement orca route",
+      "description": "Wire the router to the CLI. Implement orca route <TASK-ID> that reads task metadata, runs the router, and prints a human-readable recommendation. Support --json output.",
+      "acceptance_criteria": [
+        "orca route TASK-001 prints provider recommendation",
+        "orca route --json outputs structured JSON",
+        "Command fails gracefully for unknown task IDs",
+        "Command uses config routing policy",
+        "CLI tests pass"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-010",
+      "title": "Implement memory store and safe file writing",
+      "description": "Create a file-based memory store that safely writes markdown notes under .orca/memory/. Include atomic writes, directory creation, and read helpers.",
+      "acceptance_criteria": [
+        "MemoryStore writes files atomically",
+        "MemoryStore creates parent directories",
+        "MemoryStore can read back notes",
+        "MemoryStore handles path traversal safely",
+        "Memory tests pass"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-011",
+      "title": "Implement Obsidian-compatible note writer",
+      "description": "Extend memory store to write Obsidian-compatible markdown notes with YAML frontmatter. Support task notes, decision notes, and standard vault pages.",
+      "acceptance_criteria": [
+        "Obsidian notes include YAML frontmatter",
+        "Task notes have correct frontmatter fields",
+        "Decision notes follow decision template",
+        "Vault path is configurable",
+        "Tests pass"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-012",
+      "title": "Implement lightweight graph memory model",
+      "description": "Create Node and Edge types, graph storage as JSON under .orca/graph/, and helpers to add/query graph relationships.",
+      "acceptance_criteria": [
+        "Graph nodes have id, kind, label, metadata",
+        "Graph edges have source, target, kind, metadata",
+        "Graph writes to nodes.json and edges.json",
+        "Graph can be loaded back from JSON",
+        "Graph tests pass"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-013",
+      "title": "Implement context packet schema and renderer",
+      "description": "Define ContextPacket struct with all required fields. Implement markdown and JSON rendering. Include validation that required fields are present.",
+      "acceptance_criteria": [
+        "ContextPacket struct has all MVP fields",
+        "Render to markdown follows template",
+        "Render to JSON is valid",
+        "Validation catches missing required fields",
+        "Context packet tests pass"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-014",
+      "title": "Implement orca context",
+      "description": "Wire context packet generation to CLI. Implement orca context <TASK-ID> that reads task and memory, builds a context packet, and writes it to .orca/context-packets/.",
+      "acceptance_criteria": [
+        "orca context TASK-001 writes a context packet file",
+        "Context packet includes relevant project memory",
+        "Command fails gracefully for unknown task IDs",
+        "--refresh regenerates the packet",
+        "CLI tests pass"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-015",
+      "title": "Implement repo scanning and orca scan",
+      "description": "Implement a repo scanner that walks the project directory, builds a file summary, detects project type, and updates project memory with findings.",
+      "acceptance_criteria": [
+        "orca scan walks repo and finds files",
+        "Scanner detects Rust projects (Cargo.toml)",
+        "Scanner writes findings to memory",
+        "Scanner respects .gitignore",
+        "Scanner has safe path traversal",
+        "Tests pass"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-016",
+      "title": "Implement task model and task lifecycle",
+      "description": "Create Task struct with id, title, description, type, complexity, risk, status, acceptance criteria, etc. Implement status transitions and validation.",
+      "acceptance_criteria": [
+        "Task struct has all MVP fields",
+        "Task status enum covers lifecycle states",
+        "Status transitions are validated",
+        "Task can serialize to/from YAML/JSON",
+        "Task lifecycle tests pass"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-017",
+      "title": "Implement dry-run execution and orca execute",
+      "description": "Implement execution flow that supports dry-run mode. Wire to orca execute --dry-run <TASK-ID>. In dry-run, print what would happen without calling real providers.",
+      "acceptance_criteria": [
+        "orca execute --dry-run TASK-001 prints execution plan",
+        "Dry-run does not require API keys",
+        "Dry-run uses mock provider",
+        "Command shows provider, model, and estimated cost",
+        "Execution tests pass"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-018",
+      "title": "Implement review schema and orca review",
+      "description": "Create ReviewResult struct with accepted, reasons, missing criteria, risks, recommended next step. Wire to orca review <TASK-ID> with mock review in MVP.",
+      "acceptance_criteria": [
+        "ReviewResult struct has all MVP fields",
+        "orca review TASK-001 outputs review result",
+        "Review can accept, reject, or recommend escalation",
+        "Review considers acceptance criteria from task",
+        "Review tests pass"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-019",
+      "title": "Implement memory update flow and orca memory update",
+      "description": "Implement memory update proposal generation and safe application. Wire to orca memory update <TASK-ID>. Update task history, current state, and model performance.",
+      "acceptance_criteria": [
+        "orca memory update TASK-001 updates memory files",
+        "Memory update appends to task history",
+        "Memory update updates current state",
+        "Memory update is safe (atomic write, backup)",
+        "Memory update tests pass"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-020",
+      "title": "Implement approval gates",
+      "description": "Create approval gate system that checks if a task requires manual approval. Gates for premium providers, destructive operations, and high-risk tasks.",
+      "acceptance_criteria": [
+        "Approval gate blocks premium Cursor without approval",
+        "Approval gate blocks destructive fs ops without approval",
+        "Approval gate can be bypassed with --yes flag",
+        "Config controls which gates are enabled",
+        "Approval gate tests pass"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-021",
+      "title": "Implement provider adapter skeletons",
+      "description": "Create placeholder/stub implementations for Ollama, Anthropic, OpenAI/Codex, Cursor, and Command providers. Each should implement Provider trait with clear TODOs for real integration. Cursor adapter must not require Node.js.",
+      "acceptance_criteria": [
+        "All MVP provider kinds have adapter structs",
+        "All adapters implement Provider trait",
+        "Cursor adapter is a safe placeholder",
+        "Ollama adapter has HTTP client skeleton",
+        "Anthropic adapter has HTTP client skeleton",
+        "OpenAI/Codex adapter has HTTP client skeleton",
+        "Command adapter can run subprocesses",
+        "Provider skeleton tests pass"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-022",
+      "title": "Implement orca plan",
+      "description": "Implement plan command that generates a task graph from project memory and plan input. Support --manual mode. Write task-graph.yaml.",
+      "acceptance_criteria": [
+        "orca plan creates task-graph.yaml",
+        "Task graph has valid schema",
+        "Tasks have IDs, titles, dependencies",
+        "--manual mode generates skeleton graph",
+        "Plan tests pass"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-023",
+      "title": "Implement orca run --dry-run orchestration",
+      "description": "Implement run command that orchestrates the full loop: context -> route -> execute -> review -> memory update, all in dry-run mode.",
+      "acceptance_criteria": [
+        "orca run --dry-run TASK-001 runs full loop",
+        "Each step prints what it would do",
+        "Loop stops early if a step fails",
+        "Dry-run uses mock providers throughout",
+        "Run tests pass"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-024",
+      "title": "Implement orca status",
+      "description": "Implement status command that reads state and task graph, then prints a summary of project health, completed tasks, pending tasks, and blocked tasks.",
+      "acceptance_criteria": [
+        "orca status prints project summary",
+        "Shows completed, pending, and blocked task counts",
+        "Shows current phase",
+        "Support --json output",
+        "Status tests pass"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-025",
+      "title": "Add prompt library",
+      "description": "Create src/prompts/library.rs with all required prompt constants: Project Memory Agent, Context Packet Agent, Router Agent, Claude Planner Agent, Cursor Composer Execution Agent, Codex Scoped Executor, Ollama Compression Agent, Review Agent.",
+      "acceptance_criteria": [
+        "All MVP prompts exist as Rust constants",
+        "Prompts are well-structured and usable",
+        "Optional markdown copies written to .orca/prompts/",
+        "Prompt tests verify presence and non-empty"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-026",
+      "title": "Add secret redaction utilities",
+      "description": "Implement utilities to redact secrets from strings before logging or including in context packets. Redact API keys, tokens, .env contents, private keys.",
+      "acceptance_criteria": [
+        "Redacts API keys",
+        "Redacts env file contents",
+        "Redacts private keys",
+        "Redaction is tested with examples",
+        "No secrets in test output"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-027",
+      "title": "Add integration-style tests for full dry-run workflow",
+      "description": "Create integration tests that exercise the full dry-run workflow using a temporary project fixture. Use assert_cmd and tempfile.",
+      "acceptance_criteria": [
+        "Integration test runs orca init in temp dir",
+        "Integration test runs orca config validate",
+        "Integration test runs orca scan",
+        "Integration test runs orca context",
+        "Integration test runs orca route",
+        "Integration test runs orca execute --dry-run",
+        "Integration test runs orca review",
+        "Integration test runs orca memory update",
+        "Integration test runs orca run --dry-run",
+        "Integration test runs orca status",
+        "All integration tests pass"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-028",
+      "title": "Add documentation",
+      "description": "Create README.md, docs/getting-started.md, docs/configuration.md, docs/model-routing.md, docs/memory-system.md, docs/providers.md, docs/ralph-development-workflow.md, docs/cursor-integration.md.",
+      "acceptance_criteria": [
+        "README.md explains setup and usage",
+        "docs/getting-started.md has quickstart",
+        "docs/configuration.md explains config schema",
+        "docs/model-routing.md explains routing philosophy",
+        "docs/memory-system.md explains memory layout",
+        "docs/providers.md explains provider adapters",
+        "docs/ralph-development-workflow.md explains dev workflow",
+        "docs/cursor-integration.md explains Cursor strategy"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ORCA-029",
+      "title": "Final polish and README verification",
+      "description": "Final pass: ensure all quality commands pass, orca --help works, all docs are accurate, and the project is ready for distribution. Update prd.json and progress.txt.",
+      "acceptance_criteria": [
+        "cargo fmt --check passes",
+        "cargo clippy --all-targets --all-features -- -D warnings passes",
+        "cargo test --all-features passes",
+        "cargo build passes",
+        "orca --help works",
+        "README is accurate",
+        "All stories marked passing in prd.json"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    }
+  ]
+}
