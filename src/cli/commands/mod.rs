@@ -8,4 +8,5 @@ pub mod review;
 pub mod route;
 pub mod run;
 pub mod scan;
+pub mod splash;
 pub mod status;

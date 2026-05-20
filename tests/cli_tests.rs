@@ -94,6 +94,13 @@ fn test_orca_status_help() {
 }
 
 #[test]
+fn test_orca_splash_help() {
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["splash", "--help"]);
+    cmd.assert().success();
+}
+
+#[test]
 fn test_orca_init_creates_workspace() {
     let tmp = tempfile::tempdir().unwrap();
     let mut cmd = Command::cargo_bin("orca").unwrap();
