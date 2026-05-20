@@ -10,7 +10,8 @@ use crate::context::{render_markdown, ContextPacket};
 use crate::memory::MemoryStore;
 use crate::providers::factory::create_provider;
 use crate::providers::mock::MockProvider;
-use crate::providers::traits::{CostEstimate, Provider, ProviderRequest};
+use crate::providers::traits::{CostEstimate, ExecutionStatus, Provider, ProviderRequest};
+use crate::results;
 use crate::review::review_task;
 use crate::router::route;
 use crate::state::{self, State, TaskState};
@@ -159,6 +160,8 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
         }
     }
 
+    let mut result_path_option: Option<std::path::PathBuf> = None;
+
     // Step 4: Execute (dry-run uses mock)
     if dry_run {
         if !args.json {
@@ -201,6 +204,16 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
             max_tokens: None,
         };
         let response = rt.block_on(provider.execute(request))?;
+        if response.status == ExecutionStatus::Success {
+            match results::save_result(orca_dir, &response) {
+                Ok(path) => {
+                    result_path_option = Some(path);
+                }
+                Err(e) => {
+                    eprintln!("Warning: failed to save execution result: {}", e);
+                }
+            }
+        }
         output.estimated_cost = Some(provider.estimate_cost(&ProviderRequest {
             task_id: args.task_id.clone(),
             prompt: response.output.clone(),
@@ -250,7 +263,9 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
                 assigned_provider: None,
                 assigned_model: None,
                 context_packet_path: Some(context_path.to_string_lossy().to_string()),
-                result_path: None,
+                result_path: result_path_option
+                    .as_ref()
+                    .map(|p| p.to_string_lossy().to_string()),
                 updated_at: Some(now.clone()),
             });
         task_state.status = "complete".to_string();

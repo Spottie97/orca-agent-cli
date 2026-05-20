@@ -5,6 +5,7 @@ pub mod context;
 pub mod memory;
 pub mod prompts;
 pub mod providers;
+pub mod results;
 pub mod review;
 pub mod router;
 pub mod scan;

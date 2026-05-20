@@ -799,6 +799,122 @@ fn test_orca_run_json_no_headings() {
 }
 
 #[test]
+fn test_orca_execute_dry_run_no_result_file() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["execute", "--dry-run", "TASK-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("DRY RUN"));
+
+    let result_path = tmp.path().join(".orca/results/TASK-001.json");
+    assert!(
+        !result_path.exists(),
+        "execute --dry-run must not create result artifact"
+    );
+}
+
+#[test]
+fn test_orca_execute_creates_result_file() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["execute", "TASK-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let result_path = tmp.path().join(".orca/results/TASK-001.json");
+    assert!(
+        result_path.exists(),
+        "execute must create result artifact on success"
+    );
+
+    let contents = std::fs::read_to_string(&result_path).unwrap();
+    let artifact: serde_json::Value = serde_json::from_str(&contents).unwrap();
+    assert_eq!(artifact["task_id"], "TASK-001");
+    assert_eq!(artifact["status"], "success");
+}
+
+#[test]
+fn test_orca_run_dry_run_no_result_file() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["run", "--dry-run", "TASK-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let result_path = tmp.path().join(".orca/results/TASK-001.json");
+    assert!(
+        !result_path.exists(),
+        "run --dry-run must not create result artifact"
+    );
+}
+
+#[test]
+fn test_orca_run_creates_result_file() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["run", "TASK-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let result_path = tmp.path().join(".orca/results/TASK-001.json");
+    assert!(
+        result_path.exists(),
+        "run must create result artifact on success"
+    );
+
+    let contents = std::fs::read_to_string(&result_path).unwrap();
+    let artifact: serde_json::Value = serde_json::from_str(&contents).unwrap();
+    assert_eq!(artifact["task_id"], "TASK-001");
+    assert_eq!(artifact["status"], "success");
+}
+
+#[test]
 fn test_orca_init_json_rejected() {
     let mut cmd = Command::cargo_bin("orca").unwrap();
     cmd.args(["init", "--json"]);

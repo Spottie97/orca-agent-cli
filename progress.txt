@@ -49,12 +49,15 @@ Stories completed:
 - PHASE2-001: Add real OpenAI-compatible provider execution
 
 Current story:
-- PHASE2-002: Add provider execution safety controls
+- PHASE2-004: Add patch proposal artifact support
 
 Next stories:
-- PHASE2-003: Persist execution results safely
-- PHASE2-004: Add patch proposal artifact support
 - PHASE2-005: Improve review integration for real results
 - PHASE2-006: Improve memory update from completed task results
 - PHASE2-007: Add optional Ollama local chat provider
 - PHASE2-008: Prepare Cursor Composer bridge design only
+
+Stories completed:
+- PHASE2-001: Add real OpenAI-compatible provider execution
+- PHASE2-002: Add provider execution safety controls
+- PHASE2-003: Persist execution results safely

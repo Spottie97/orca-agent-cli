@@ -6,7 +6,8 @@ use clap::Args;
 use crate::approvals::{check_approval, ApprovalCheck, ApprovalConfig};
 use crate::config::schema::Config;
 use crate::providers::factory::create_provider;
-use crate::providers::traits::ProviderRequest;
+use crate::providers::traits::{ExecutionStatus, ProviderRequest};
+use crate::results;
 use crate::router::route;
 use crate::tasks::resolve_task_from_graph;
 
@@ -94,6 +95,11 @@ pub fn run(args: ExecuteArgs, dry_run: bool, yes: bool) -> Result<()> {
         };
 
         let response = rt.block_on(provider.execute(request))?;
+        if response.status == ExecutionStatus::Success {
+            if let Err(e) = results::save_result(&config.project.orca_dir, &response) {
+                eprintln!("Warning: failed to save execution result: {}", e);
+            }
+        }
         println!("Execution result for {}", args.task_id);
         println!("  Provider: {}", response.provider);
         println!("  Model: {}", response.model_id);
