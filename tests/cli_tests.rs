@@ -115,3 +115,22 @@ fn test_orca_init_creates_workspace() {
     assert!(orca.join("graph").exists());
     assert!(orca.join("logs").exists());
 }
+
+#[test]
+fn test_orca_config_validate() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    // init first
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    // then validate
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["config", "validate"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Configuration is valid"));
+}
