@@ -587,7 +587,7 @@
     {
       "id": "ORCA-030",
       "title": "Fix MVP routing policy for planning tasks",
-      "description": "Separate Planning from Architecture/Decomposition/RiskAnalysis routing. Add ProviderKind::Manual and model enabled flags. Route planning tasks to Ollama (low risk), default planner (medium), or Claude (high complexity), with Manual fallback. Ensure reasons mention planning, not implementation.",
+      "description": "Separate Planning from Architecture/Decomposition/RiskAnalysis routing. Add ProviderKind::Manual and model enabled flags. Route planning tasks to Ollama (low risk), default planner (medium), or Claude (high complexity), with Manual fallback. Fix task graph resolution so route/context/execute/review/run commands load real task metadata from .orca/task-graph.yaml instead of synthesizing defaults.",
       "acceptance_criteria": [
         "Planning tasks route separately from Architecture",
         "Low-risk planning routes to Ollama",
@@ -596,6 +596,8 @@
         "Disabled providers fallback to Manual",
         "Planning reasons do not mention implementation",
         "route.rs defaults to Planning task type",
+        "route/context/execute/review/run resolve tasks from task graph",
+        "Missing task IDs warn and use fallback, not silent defaults",
         "All tests pass"
       ],
       "quality_checks": [
