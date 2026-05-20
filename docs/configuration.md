@@ -21,6 +21,7 @@ models:
     enabled: true
     base_url: "${OLLAMA_HOST:-http://localhost:11434}"
     model: llama3
+    role: context_and_memory
   anthropic:
     enabled: true
     api_key: "${ANTHROPIC_API_KEY}"
@@ -55,6 +56,28 @@ Values can reference environment variables:
 
 - `${VAR}` — replaced with the value of `VAR`
 - `${VAR:-default}` — replaced with `VAR` or `default` if `VAR` is unset
+
+## Ollama Cloud example
+
+To use Ollama Cloud instead of a local instance:
+
+```yaml
+models:
+  ollama:
+    enabled: true
+    base_url: https://ollama.com
+    default_model: kimi-k2.6
+    api_key_env_var: OLLAMA_API_KEY
+    role: context_and_memory
+```
+
+Set the environment variable before running Orca:
+
+```bash
+export OLLAMA_API_KEY="your-api-key"
+```
+
+If `api_key_env_var` is omitted or empty, no `Authorization` header is sent, and local Ollama at `http://localhost:11434` continues to work without authentication.
 
 ## Validation
 

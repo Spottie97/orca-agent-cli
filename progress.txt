@@ -63,3 +63,4 @@ Stories completed:
 - PHASE2-006: Improve memory update from completed task results
 - PHASE2-007: Add optional Ollama local chat provider
 - PHASE2-008: Prepare Cursor Composer bridge design only
+- HOTFIX-005: Add optional bearer auth to OllamaProvider

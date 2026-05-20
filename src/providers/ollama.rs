@@ -18,6 +18,8 @@ pub struct OllamaProvider {
     client: Client,
     timeout_seconds: u64,
     max_response_bytes: u64,
+    api_key: Option<String>,
+    api_key_env_var: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -51,10 +53,21 @@ impl OllamaProvider {
             client: Client::new(),
             timeout_seconds: DEFAULT_TIMEOUT_SECONDS,
             max_response_bytes: DEFAULT_MAX_RESPONSE_BYTES,
+            api_key: None,
+            api_key_env_var: None,
         }
     }
 
     pub fn from_config(config: &OllamaModelConfig) -> Self {
+        let (api_key, api_key_env_var) = if config.api_key_env_var.is_empty() {
+            (None, None)
+        } else {
+            match std::env::var(&config.api_key_env_var) {
+                Ok(val) if !val.is_empty() => (Some(val), Some(config.api_key_env_var.clone())),
+                _ => (None, Some(config.api_key_env_var.clone())),
+            }
+        };
+
         Self {
             name: "ollama".to_string(),
             base_url: config.base_url.clone(),
@@ -62,6 +75,8 @@ impl OllamaProvider {
             client: Client::new(),
             timeout_seconds: DEFAULT_TIMEOUT_SECONDS,
             max_response_bytes: DEFAULT_MAX_RESPONSE_BYTES,
+            api_key,
+            api_key_env_var,
         }
     }
 
@@ -102,22 +117,34 @@ impl OllamaProvider {
             stream: false,
         };
 
-        let response = self
+        if let Some(ref var_name) = self.api_key_env_var {
+            if self.api_key.is_none() {
+                return Err(ProviderError::NotConfigured(format!(
+                    "Ollama API key environment variable '{}' is not set or empty",
+                    var_name
+                )));
+            }
+        }
+
+        let mut request_builder = self
             .client
             .post(&url)
             .timeout(std::time::Duration::from_secs(self.timeout_seconds))
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| {
-                if e.is_timeout() {
-                    ProviderError::ApiError(format!("Ollama request timed out: {}", e))
-                } else if e.is_connect() {
-                    ProviderError::ApiError(format!("Ollama connection failed: {}", e))
-                } else {
-                    ProviderError::ApiError(format!("Ollama request failed: {}", e))
-                }
-            })?;
+            .json(&body);
+
+        if let Some(ref key) = self.api_key {
+            request_builder = request_builder.header("Authorization", format!("Bearer {}", key));
+        }
+
+        let response = request_builder.send().await.map_err(|e| {
+            if e.is_timeout() {
+                ProviderError::ApiError(format!("Ollama request timed out: {}", e))
+            } else if e.is_connect() {
+                ProviderError::ApiError(format!("Ollama connection failed: {}", e))
+            } else {
+                ProviderError::ApiError(format!("Ollama request failed: {}", e))
+            }
+        })?;
 
         let status = response.status();
         let content_length = response.content_length();
@@ -216,7 +243,7 @@ impl Provider for OllamaProvider {
 mod tests {
     use super::*;
     use wiremock::{
-        matchers::{method, path},
+        matchers::{header, method, path},
         Mock, MockServer, ResponseTemplate,
     };
 
@@ -291,6 +318,8 @@ mod tests {
             client: Client::new(),
             timeout_seconds: 120,
             max_response_bytes: 1024,
+            api_key: None,
+            api_key_env_var: None,
         };
 
         let request = ProviderRequest {
@@ -368,5 +397,160 @@ mod tests {
 
         let response = provider.execute(request).await.unwrap();
         assert_eq!(response.output, "Recovered");
+    }
+
+    #[tokio::test]
+    async fn test_ollama_provider_no_auth_when_not_configured() {
+        let server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/api/generate"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "model": "qwen",
+                "response": "No auth needed",
+                "done": true,
+            })))
+            .mount(&server)
+            .await;
+
+        let provider = OllamaProvider::new(server.uri(), "qwen");
+        let request = ProviderRequest {
+            task_id: "TASK-001".to_string(),
+            prompt: "Hello".to_string(),
+            model_id: None,
+            context: None,
+            max_tokens: None,
+        };
+
+        let response = provider.execute(request).await.unwrap();
+        assert_eq!(response.output, "No auth needed");
+    }
+
+    #[tokio::test]
+    async fn test_ollama_provider_sends_bearer_when_configured() {
+        let server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/api/generate"))
+            .and(header("Authorization", "Bearer ollama-cloud-key"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "model": "kimi-k2.6",
+                "response": "Cloud OK",
+                "done": true,
+            })))
+            .mount(&server)
+            .await;
+
+        let provider = OllamaProvider {
+            name: "ollama".to_string(),
+            base_url: server.uri(),
+            default_model: "kimi-k2.6".to_string(),
+            client: Client::new(),
+            timeout_seconds: 120,
+            max_response_bytes: DEFAULT_MAX_RESPONSE_BYTES,
+            api_key: Some("ollama-cloud-key".to_string()),
+            api_key_env_var: Some("OLLAMA_API_KEY".to_string()),
+        };
+
+        let request = ProviderRequest {
+            task_id: "TASK-001".to_string(),
+            prompt: "Hello".to_string(),
+            model_id: None,
+            context: None,
+            max_tokens: None,
+        };
+
+        let response = provider.execute(request).await.unwrap();
+        assert_eq!(response.output, "Cloud OK");
+    }
+
+    #[tokio::test]
+    async fn test_ollama_provider_errors_when_env_var_missing() {
+        let provider = OllamaProvider {
+            name: "ollama".to_string(),
+            base_url: "https://ollama.com".to_string(),
+            default_model: "kimi-k2.6".to_string(),
+            client: Client::new(),
+            timeout_seconds: 120,
+            max_response_bytes: DEFAULT_MAX_RESPONSE_BYTES,
+            api_key: None,
+            api_key_env_var: Some("OLLAMA_API_KEY_DEFINITELY_MISSING".to_string()),
+        };
+
+        let request = ProviderRequest {
+            task_id: "TASK-001".to_string(),
+            prompt: "Hello".to_string(),
+            model_id: None,
+            context: None,
+            max_tokens: None,
+        };
+
+        let result = provider.execute(request).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("OLLAMA_API_KEY_DEFINITELY_MISSING"),
+            "Expected error mentioning env var name, got: {}",
+            err
+        );
+        assert!(
+            err.contains("not set or empty"),
+            "Expected clear missing-env error, got: {}",
+            err
+        );
+    }
+
+    #[tokio::test]
+    async fn test_ollama_provider_errors_when_env_var_empty() {
+        let provider = OllamaProvider {
+            name: "ollama".to_string(),
+            base_url: "https://ollama.com".to_string(),
+            default_model: "kimi-k2.6".to_string(),
+            client: Client::new(),
+            timeout_seconds: 120,
+            max_response_bytes: DEFAULT_MAX_RESPONSE_BYTES,
+            api_key: None,
+            api_key_env_var: Some("OLLAMA_API_KEY".to_string()),
+        };
+
+        let request = ProviderRequest {
+            task_id: "TASK-001".to_string(),
+            prompt: "Hello".to_string(),
+            model_id: None,
+            context: None,
+            max_tokens: None,
+        };
+
+        let result = provider.execute(request).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("not set or empty"),
+            "Expected clear empty-env error, got: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_ollama_provider_secret_not_in_error_message() {
+        // If an error were to accidentally contain the secret value,
+        // redaction should catch it. Here we verify the error message
+        // only contains the env var name, never the key value.
+        use crate::utils::redact::redact_secrets;
+
+        let err_msg = "Ollama API key environment variable 'OLLAMA_API_KEY' is not set or empty";
+        let redacted = redact_secrets(err_msg);
+        assert_eq!(
+            redacted, err_msg,
+            "Error message should not trigger redaction since it never contains the secret"
+        );
+
+        // Ensure that if someone accidentally includes the key, redaction works
+        let leaky = "Authorization: Bearer sk-ollama-secret-123";
+        let redacted_leaky = redact_secrets(leaky);
+        assert!(
+            !redacted_leaky.contains("sk-ollama-secret-123"),
+            "Redaction should remove the secret value"
+        );
     }
 }

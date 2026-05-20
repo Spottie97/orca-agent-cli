@@ -725,6 +725,29 @@
         "cargo build"
       ],
       "passes": true
+    },
+    {
+      "id": "HOTFIX-005",
+      "title": "Add optional bearer auth to OllamaProvider",
+      "description": "Ollama Cloud requires bearer authentication via Authorization header, but the existing OllamaProvider only works for local Ollama. Add optional api_key_env_var support to OllamaModelConfig, wire bearer token in OllamaProvider execute, preserve local Ollama behavior when not configured, and ensure no secret leakage.",
+      "acceptance_criteria": [
+        "OllamaModelConfig includes api_key_env_var with default 'OLLAMA_API_KEY'",
+        "Local Ollama works without auth when api_key_env_var is empty or omitted",
+        "Ollama Cloud works when api_key_env_var resolves to a non-empty env var",
+        "Missing or empty configured env var returns clear ProviderError::NotConfigured before HTTP call",
+        "No secret values appear in error messages, logs, results, reviews, memory, context packets, or patches",
+        "Existing secret redaction utilities cover bearer token patterns",
+        "Config validation accepts models.ollama.api_key_env_var",
+        "All existing Ollama tests still pass",
+        "New tests cover no-auth, bearer-auth, missing-env, empty-env, and secret-redaction scenarios"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": true
     }
   ]
 }

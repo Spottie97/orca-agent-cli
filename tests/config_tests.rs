@@ -119,3 +119,25 @@ fn test_config_roundtrip_preserves_openai() {
         config.models.openai.timeout_seconds
     );
 }
+
+#[test]
+fn test_config_accept_ollama_api_key_env_var() {
+    let yaml = r#"
+project:
+  name: test-project
+  repo_path: .
+  orca_dir: .orca
+models:
+  ollama:
+    enabled: true
+    base_url: https://ollama.com
+    default_model: kimi-k2.6
+    api_key_env_var: OLLAMA_API_KEY
+    role: context_and_memory
+"#;
+
+    let parsed: Config =
+        serde_yaml::from_str(yaml).expect("config with ollama api_key_env_var should parse");
+    assert_eq!(parsed.models.ollama.api_key_env_var, "OLLAMA_API_KEY");
+    assert_eq!(parsed.models.ollama.base_url, "https://ollama.com");
+}

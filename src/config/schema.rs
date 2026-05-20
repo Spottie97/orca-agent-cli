@@ -77,6 +77,8 @@ pub struct OllamaModelConfig {
     pub base_url: String,
     #[serde(default = "default_ollama_model")]
     pub default_model: String,
+    #[serde(default = "default_ollama_api_key_env")]
+    pub api_key_env_var: String,
     #[serde(default = "default_ollama_role")]
     pub role: String,
 }
@@ -87,6 +89,7 @@ impl Default for OllamaModelConfig {
             enabled: true,
             base_url: default_ollama_base_url(),
             default_model: default_ollama_model(),
+            api_key_env_var: default_ollama_api_key_env(),
             role: default_ollama_role(),
         }
     }
@@ -302,6 +305,10 @@ fn default_ollama_base_url() -> String {
 
 fn default_ollama_model() -> String {
     "qwen3.5:4b".to_string()
+}
+
+fn default_ollama_api_key_env() -> String {
+    "OLLAMA_API_KEY".to_string()
 }
 
 fn default_ollama_role() -> String {
