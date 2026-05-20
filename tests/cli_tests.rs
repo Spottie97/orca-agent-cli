@@ -296,3 +296,37 @@ fn test_orca_run_dry_run() {
         .stdout(predicate::str::contains("Execution (dry-run)"))
         .stdout(predicate::str::contains("Run complete"));
 }
+
+#[test]
+fn test_orca_status() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("status");
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Project:"));
+}
+
+#[test]
+fn test_orca_status_json() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["status", "--json"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("project_name"));
+}
