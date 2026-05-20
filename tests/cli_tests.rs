@@ -94,10 +94,24 @@ fn test_orca_status_help() {
 }
 
 #[test]
-fn test_orca_init_runs() {
+fn test_orca_init_creates_workspace() {
+    let tmp = tempfile::tempdir().unwrap();
     let mut cmd = Command::cargo_bin("orca").unwrap();
     cmd.arg("init");
+    cmd.current_dir(&tmp);
     cmd.assert()
         .success()
-        .stdout(predicate::str::contains("Initializing"));
+        .stdout(predicate::str::contains("Initialized"));
+
+    let orca = tmp.path().join(".orca");
+    assert!(orca.exists());
+    assert!(orca.join("config.yaml").exists());
+    assert!(orca.join("state.json").exists());
+    assert!(orca.join("input").exists());
+    assert!(orca.join("context-packets").exists());
+    assert!(orca.join("prompts").exists());
+    assert!(orca.join("results").exists());
+    assert!(orca.join("memory").exists());
+    assert!(orca.join("graph").exists());
+    assert!(orca.join("logs").exists());
 }

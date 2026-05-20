@@ -69,7 +69,7 @@
         "cargo test --all-features",
         "cargo build"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "ORCA-004",

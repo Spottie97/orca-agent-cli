@@ -1,7 +1,15 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::Args;
+
+use crate::config::schema::{
+    Config, ContextConfig, ExecutionConfig, MemoryConfig, ModelsConfig, ProjectConfig,
+    RoutingConfig,
+};
+use crate::state::State;
+use crate::utils::fs;
 
 #[derive(Args)]
 pub struct InitArgs {
@@ -15,7 +23,57 @@ pub struct InitArgs {
     pub vault: Option<PathBuf>,
 }
 
-pub fn run(_args: InitArgs) -> Result<()> {
-    println!("Initializing Orca project workspace...");
+pub fn run(args: InitArgs) -> Result<()> {
+    let repo_path = args.repo.unwrap_or_else(|| PathBuf::from("."));
+    let repo_path = std::fs::canonicalize(&repo_path).unwrap_or(repo_path);
+
+    let project_name = args.project_name.unwrap_or_else(|| {
+        repo_path
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| "orca-project".to_string())
+    });
+
+    let orca_dir = repo_path.join(".orca");
+
+    fs::ensure_dir(&orca_dir)?;
+    fs::ensure_dir(&orca_dir.join("input"))?;
+    fs::ensure_dir(&orca_dir.join("context-packets"))?;
+    fs::ensure_dir(&orca_dir.join("prompts"))?;
+    fs::ensure_dir(&orca_dir.join("results"))?;
+    fs::ensure_dir(&orca_dir.join("memory"))?;
+    fs::ensure_dir(&orca_dir.join("graph"))?;
+    fs::ensure_dir(&orca_dir.join("logs"))?;
+
+    let config = Config {
+        project: ProjectConfig {
+            name: project_name.clone(),
+            repo_path: repo_path.clone(),
+            vault_path: args.vault,
+            orca_dir: orca_dir.clone(),
+        },
+        execution: ExecutionConfig::default(),
+        models: ModelsConfig::default(),
+        routing: RoutingConfig::default(),
+        context: ContextConfig::default(),
+        memory: MemoryConfig::default(),
+    };
+
+    let config_yaml = serde_yaml::to_string(&config)?;
+    fs::safe_write(&orca_dir.join("config.yaml"), &config_yaml)?;
+
+    let state = State {
+        project_name,
+        current_phase: "MVP".to_string(),
+        tasks: HashMap::new(),
+    };
+
+    let state_json = serde_json::to_string_pretty(&state)?;
+    fs::safe_write(&orca_dir.join("state.json"), &state_json)?;
+
+    println!(
+        "Initialized Orca project workspace at {}",
+        orca_dir.display()
+    );
     Ok(())
 }
