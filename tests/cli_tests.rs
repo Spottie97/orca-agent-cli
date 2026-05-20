@@ -171,3 +171,23 @@ fn test_orca_context() {
     let packet_path = tmp.path().join(".orca/context-packets/TASK-001.md");
     assert!(packet_path.exists());
 }
+
+#[test]
+fn test_orca_scan() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("scan");
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Scanning"));
+
+    let scan_path = tmp.path().join(".orca/scans/latest.md");
+    assert!(scan_path.exists());
+}
