@@ -162,6 +162,11 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
     }
 
     let mut result_path_option: Option<std::path::PathBuf> = None;
+    let mut exec_output: Option<String> = None;
+    let mut exec_status: Option<String> = None;
+    let mut exec_duration_ms: Option<u64> = None;
+    let mut exec_input_tokens: Option<u32> = None;
+    let mut exec_output_tokens: Option<u32> = None;
 
     // Step 4: Execute (dry-run uses mock)
     if dry_run {
@@ -205,6 +210,11 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
             max_tokens: None,
         };
         let response = rt.block_on(provider.execute(request))?;
+        exec_output = Some(response.output.clone());
+        exec_status = Some(response.status.to_string());
+        exec_duration_ms = response.duration_ms;
+        exec_input_tokens = response.input_tokens;
+        exec_output_tokens = response.output_tokens;
         if response.status == ExecutionStatus::Success {
             match results::save_result(orca_dir, &response) {
                 Ok(path) => {
@@ -235,7 +245,14 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
     }
 
     // Step 5: Review
-    let review_result = review_task(&task);
+    let review_result = review_task(
+        &task,
+        exec_output.as_deref(),
+        exec_status.as_deref(),
+        exec_duration_ms,
+        exec_input_tokens,
+        exec_output_tokens,
+    );
     output.review_verdict = review_result.verdict.to_string();
     output.review_next_step = review_result.recommended_next_step.clone();
     if !args.json {
@@ -252,7 +269,14 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
         }
     }
 
-    // Step 6: Update memory
+    // Step 6: Save review artifact
+    if !dry_run {
+        if let Err(e) = crate::review::save_review(orca_dir, &review_result) {
+            eprintln!("Warning: failed to save review artifact: {}", e);
+        }
+    }
+
+    // Step 7: Update memory
     if !dry_run {
         let mut state = if state_path.exists() {
             state::load(&state_path)?

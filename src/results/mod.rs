@@ -62,6 +62,37 @@ pub fn save_result(orca_dir: &Path, response: &ProviderResponse) -> Result<std::
     Ok(path)
 }
 
+/// Load an execution result for the given task ID.
+pub fn load_result(orca_dir: &Path, task_id: &str) -> Result<ExecutionResult> {
+    let path = orca_dir.join("results").join(format!("{}.json", task_id));
+    let contents = std::fs::read_to_string(&path)?;
+    let artifact = serde_json::from_str(&contents)?;
+    Ok(artifact)
+}
+
+/// List all execution result task IDs.
+pub fn list_results(orca_dir: &Path) -> Result<Vec<String>> {
+    let results_dir = orca_dir.join("results");
+    if !results_dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    let mut ids = Vec::new();
+    for entry in std::fs::read_dir(&results_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if let Some(ext) = path.extension() {
+            if ext == "json" {
+                if let Some(stem) = path.file_stem() {
+                    ids.push(stem.to_string_lossy().to_string());
+                }
+            }
+        }
+    }
+    ids.sort();
+    Ok(ids)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

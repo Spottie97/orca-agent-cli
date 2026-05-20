@@ -30,34 +30,60 @@ pub fn run(args: ReviewArgs) -> Result<()> {
         }
     };
 
-    let result = review_task(&task);
+    // Try to load execution result for richer review
+    let result_artifact = crate::results::load_result(&config.project.orca_dir, &args.task_id).ok();
+
+    let review = if let Some(ref artifact) = result_artifact {
+        review_task(
+            &task,
+            Some(&artifact.output),
+            Some(&artifact.status),
+            artifact.duration_ms,
+            artifact.input_tokens,
+            artifact.output_tokens,
+        )
+    } else {
+        review_task(&task, None, None, None, None, None)
+    };
 
     println!("Review for {}", args.task_id);
-    println!("  Verdict: {}", result.verdict);
-    println!("  Accepted: {}", if result.accepted { "yes" } else { "no" });
+    println!("  Verdict: {}", review.verdict);
+    println!("  Accepted: {}", if review.accepted { "yes" } else { "no" });
 
-    if !result.reasons.is_empty() {
+    if !review.reasons.is_empty() {
         println!("  Reasons:");
-        for r in &result.reasons {
+        for r in &review.reasons {
             println!("    - {}", r);
         }
     }
 
-    if !result.missing_criteria.is_empty() {
+    if !review.missing_criteria.is_empty() {
         println!("  Missing criteria:");
-        for m in &result.missing_criteria {
+        for m in &review.missing_criteria {
             println!("    - {}", m);
         }
     }
 
-    if !result.risks.is_empty() {
+    if !review.risks.is_empty() {
         println!("  Risks:");
-        for risk in &result.risks {
+        for risk in &review.risks {
             println!("    - {}", risk);
         }
     }
 
-    println!("  Recommended next step: {}", result.recommended_next_step);
+    if let Some(ref status) = review.execution_status {
+        println!("  Execution status: {}", status);
+    }
+    if let Some(ms) = review.duration_ms {
+        println!("  Duration: {} ms", ms);
+    }
+
+    println!("  Recommended next step: {}", review.recommended_next_step);
+
+    // Save review artifact
+    if let Err(e) = crate::review::save_review(&config.project.orca_dir, &review) {
+        eprintln!("Warning: failed to save review artifact: {}", e);
+    }
 
     Ok(())
 }

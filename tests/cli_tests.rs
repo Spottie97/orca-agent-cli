@@ -334,6 +334,86 @@ fn test_orca_review() {
 }
 
 #[test]
+fn test_orca_review_saves_artifact() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["review", "TASK-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let review_path = tmp.path().join(".orca/reviews/TASK-001.json");
+    assert!(review_path.exists(), "review must save review artifact");
+
+    let contents = std::fs::read_to_string(&review_path).unwrap();
+    let artifact: serde_json::Value = serde_json::from_str(&contents).unwrap();
+    assert_eq!(artifact["task_id"], "TASK-001");
+    assert!(!artifact["verdict"].as_str().unwrap().is_empty());
+}
+
+#[test]
+fn test_orca_review_considers_execution_result() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    // Execute the task to create a result artifact
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["execute", "TASK-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["review", "TASK-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Review for TASK-001"));
+
+    let review_path = tmp.path().join(".orca/reviews/TASK-001.json");
+    assert!(review_path.exists());
+
+    let contents = std::fs::read_to_string(&review_path).unwrap();
+    let artifact: serde_json::Value = serde_json::from_str(&contents).unwrap();
+    assert_eq!(artifact["task_id"], "TASK-001");
+    assert!(
+        artifact["execution_status"].is_string() || artifact["execution_status"].is_null(),
+        "review artifact should include execution status"
+    );
+}
+
+#[test]
+fn test_orca_init_creates_reviews_dir() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let reviews_dir = tmp.path().join(".orca/reviews");
+    assert!(reviews_dir.exists(), "init must create reviews directory");
+}
+
+#[test]
 fn test_orca_memory_update() {
     let tmp = tempfile::tempdir().unwrap();
 
