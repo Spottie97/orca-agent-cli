@@ -1,3 +1,17 @@
+```
+                          ___
+                        /     \
+                       /  >_   \
+                      /    --    \
+                     /   ______   \
+                    /___/      \___\
+                       \      /
+                        \    /
+                         \  /
+                          \/
+                 ORCA AGENT CLI
+```
+
 # Orca Agent CLI
 
 Orca Agent CLI is a Rust-native AI coding orchestration tool. It learns your project, builds persistent memory, creates context packets, routes tasks across AI providers (Ollama, Claude, Codex, Cursor), and minimizes premium token usage.
