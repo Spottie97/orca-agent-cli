@@ -49,16 +49,19 @@ impl MemoryStore {
         Ok(notes)
     }
 
-    pub fn append_to_note(&self, category: &str, name: &str, text: &str) -> Result<()> {
+    /// Append text to a note. Returns `true` if the file was created or grew in size.
+    pub fn append_to_note(&self, category: &str, name: &str, text: &str) -> Result<bool> {
         let path = self.base_dir.join(category).join(format!("{}.md", name));
         let existing = if path.exists() {
             std::fs::read_to_string(&path)?
         } else {
             String::new()
         };
+        let had_content = !existing.is_empty();
         let new_contents = format!("{}{}", existing, text);
         fs::safe_write(&path, &new_contents)?;
-        Ok(())
+        // Consider it a meaningful write if the file was newly created or text was non-empty
+        Ok(!had_content || !text.is_empty())
     }
 }
 
@@ -93,10 +96,28 @@ mod tests {
         store
             .write_note("decisions", "DEC-001", "# Decision\n")
             .unwrap();
-        store
+        let wrote = store
             .append_to_note("decisions", "DEC-001", "Updated.\n")
             .unwrap();
+        assert!(
+            wrote,
+            "append_to_note should report true when text is written"
+        );
         let contents = store.read_note("decisions", "DEC-001").unwrap().unwrap();
         assert!(contents.contains("Updated."));
+    }
+
+    #[test]
+    fn test_append_to_note_empty_text_reports_false() {
+        let tmp = tempfile::tempdir().unwrap();
+        let store = MemoryStore::new(tmp.path());
+        store
+            .write_note("decisions", "DEC-001", "# Decision\n")
+            .unwrap();
+        let wrote = store.append_to_note("decisions", "DEC-001", "").unwrap();
+        assert!(
+            !wrote,
+            "append_to_note should report false when empty text is appended to existing note"
+        );
     }
 }

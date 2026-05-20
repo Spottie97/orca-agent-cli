@@ -5,7 +5,9 @@ use clap::Args;
 
 use crate::approvals::{check_approval, ApprovalCheck, ApprovalConfig};
 use crate::config::schema::Config;
+use crate::context::ContextPacket;
 use crate::patch;
+use crate::prompts::build_provider_prompt;
 use crate::providers::factory::create_provider;
 use crate::providers::traits::{ExecutionStatus, ProviderRequest};
 use crate::results;
@@ -26,7 +28,8 @@ pub fn run(args: ExecuteArgs, dry_run: bool, yes: bool) -> Result<()> {
     let config: Config = crate::config::load(&config_path)
         .with_context(|| format!("Failed to load config from {}", config_path.display()))?;
 
-    let graph_path = config.project.orca_dir.join("task-graph.yaml");
+    let orca_dir = &config.project.orca_dir;
+    let graph_path = orca_dir.join("task-graph.yaml");
     let task = match resolve_task_from_graph(&graph_path, &args.task_id)? {
         Some(t) => t,
         None => {
@@ -54,6 +57,38 @@ pub fn run(args: ExecuteArgs, dry_run: bool, yes: bool) -> Result<()> {
         ApprovalCheck::Pass => {}
     }
 
+    // Try to load an existing context packet for this task
+    let context_packet_path = orca_dir
+        .join("context-packets")
+        .join(format!("{}.md", args.task_id));
+    let existing_context = if context_packet_path.exists() {
+        std::fs::read_to_string(&context_packet_path).ok()
+    } else {
+        None
+    };
+
+    let context_packet = existing_context.as_ref().map(|_md| {
+        // Reconstruct a minimal ContextPacket from existing markdown for prompt building
+        let mut cp = ContextPacket::new(&args.task_id, &task.title);
+        cp.task_type = format!("{:?}", task.task_type).to_lowercase();
+        cp.goal = task.description.clone();
+        cp.acceptance_criteria = task.acceptance_criteria.clone();
+        cp.risks.push(format!("{:?}", task.risk));
+        cp.routing_recommendation = format!(
+            "Provider: {} | Model: {} | Reason: {}",
+            decision.provider, decision.model, decision.reason
+        );
+        cp
+    });
+
+    let (prompt, prompt_meta) = build_provider_prompt(
+        &task,
+        context_packet.as_ref(),
+        &decision,
+        dry_run,
+        &config.context,
+    );
+
     if dry_run {
         println!("=== DRY RUN ===");
         println!("Task: {}", args.task_id);
@@ -72,7 +107,7 @@ pub fn run(args: ExecuteArgs, dry_run: bool, yes: bool) -> Result<()> {
         let provider = create_provider(decision.provider, &config);
         let request = ProviderRequest {
             task_id: args.task_id.clone(),
-            prompt: format!("Dry-run execution for task {}", args.task_id),
+            prompt: prompt.clone(),
             model_id: Some(decision.model.clone()),
             context: None,
             max_tokens: None,
@@ -89,19 +124,22 @@ pub fn run(args: ExecuteArgs, dry_run: bool, yes: bool) -> Result<()> {
         let provider = create_provider(decision.provider, &config);
         let request = ProviderRequest {
             task_id: args.task_id.clone(),
-            prompt: format!("Execute task {}", args.task_id),
+            prompt,
             model_id: Some(decision.model.clone()),
             context: None,
             max_tokens: None,
         };
 
-        let response = rt.block_on(provider.execute(request))?;
+        let mut response = rt.block_on(provider.execute(request))?;
+        response.prompt_included_context = prompt_meta.included_context;
+        response.prompt_sections_included = prompt_meta.sections_included;
+        response.context_packet_path = Some(context_packet_path.to_string_lossy().to_string());
         if response.status == ExecutionStatus::Success {
-            if let Err(e) = results::save_result(&config.project.orca_dir, &response) {
+            if let Err(e) = results::save_result(orca_dir, &response) {
                 eprintln!("Warning: failed to save execution result: {}", e);
             }
             if let Some(proposal) = patch::PatchProposal::from_response(&response) {
-                if let Err(e) = patch::save_patch_proposal(&config.project.orca_dir, &proposal) {
+                if let Err(e) = patch::save_patch_proposal(orca_dir, &proposal) {
                     eprintln!("Warning: failed to save patch proposal: {}", e);
                 }
             }

@@ -89,6 +89,12 @@ pub struct ProviderResponse {
     pub input_tokens: Option<u32>,
     #[serde(default)]
     pub output_tokens: Option<u32>,
+    #[serde(default)]
+    pub context_packet_path: Option<String>,
+    #[serde(default)]
+    pub prompt_included_context: bool,
+    #[serde(default)]
+    pub prompt_sections_included: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

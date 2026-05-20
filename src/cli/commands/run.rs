@@ -10,6 +10,7 @@ use crate::context::{render_markdown, ContextPacket};
 use crate::memory::obsidian::format_task_completion_entry;
 use crate::memory::MemoryStore;
 use crate::patch;
+use crate::prompts::build_provider_prompt;
 use crate::providers::factory::create_provider;
 use crate::providers::mock::MockProvider;
 use crate::providers::traits::{CostEstimate, ExecutionStatus, Provider, ProviderRequest};
@@ -171,6 +172,9 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
     let mut exec_output_tokens: Option<u32> = None;
 
     // Step 4: Execute (dry-run uses mock)
+    let (prompt, prompt_meta) =
+        build_provider_prompt(&task, Some(&packet), &decision, dry_run, &config.context);
+
     if dry_run {
         if !args.json {
             println!(
@@ -181,7 +185,7 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
         let provider = MockProvider::default();
         let request = ProviderRequest {
             task_id: args.task_id.clone(),
-            prompt: format!("Dry-run execution for task {}", args.task_id),
+            prompt: prompt.clone(),
             model_id: Some(decision.model.clone()),
             context: None,
             max_tokens: None,
@@ -206,12 +210,15 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
         let provider = create_provider(decision.provider, &config);
         let request = ProviderRequest {
             task_id: args.task_id.clone(),
-            prompt: format!("Execute task {}", args.task_id),
+            prompt,
             model_id: Some(decision.model.clone()),
             context: None,
             max_tokens: None,
         };
-        let response = rt.block_on(provider.execute(request))?;
+        let mut response = rt.block_on(provider.execute(request))?;
+        response.prompt_included_context = prompt_meta.included_context;
+        response.prompt_sections_included = prompt_meta.sections_included;
+        response.context_packet_path = Some(context_path.to_string_lossy().to_string());
         exec_output = Some(response.output.clone());
         exec_status = Some(response.status.to_string());
         exec_duration_ms = response.duration_ms;
@@ -335,7 +342,7 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
             )),
             &review_result.recommended_next_step,
         );
-        store.append_to_note("tasks", &args.task_id, &history_entry)?;
+        let _memory_written = store.append_to_note("tasks", &args.task_id, &history_entry)?;
     }
 
     if args.json {
@@ -347,7 +354,11 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
             println!("Dry run: would update memory (state + task history)");
             println!("=== Dry run complete; no files were changed ===");
         } else {
-            println!("Memory updated.");
+            println!(
+                "Memory updated at {}/tasks/{}.md",
+                orca_dir.display(),
+                args.task_id
+            );
             println!("=== Run complete ===");
         }
     }

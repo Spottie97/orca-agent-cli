@@ -53,6 +53,9 @@ impl Provider for MockProvider {
             duration_ms: None,
             input_tokens: None,
             output_tokens: None,
+            context_packet_path: None,
+            prompt_included_context: false,
+            prompt_sections_included: Vec::new(),
         })
     }
 

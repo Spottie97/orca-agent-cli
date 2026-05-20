@@ -137,9 +137,13 @@ pub fn run(cmd: MemoryCmd, dry_run: bool) -> Result<()> {
                     now, task_id
                 )
             };
-            store.append_to_note("tasks", &task_id, &history_entry)?;
+            let memory_written = store.append_to_note("tasks", &task_id, &history_entry)?;
 
-            println!("Memory updated for task {}.", task_id);
+            if memory_written {
+                println!("Memory updated for task {}.", task_id);
+            } else {
+                println!("Memory update: no changes written for task {}.", task_id);
+            }
             println!("State saved to {}", state_path.display());
         }
     }

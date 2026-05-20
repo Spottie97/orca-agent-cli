@@ -221,6 +221,9 @@ impl OpenAiProvider {
             duration_ms: None,
             input_tokens: Some(input_tokens),
             output_tokens: Some(output_tokens),
+            context_packet_path: None,
+            prompt_included_context: false,
+            prompt_sections_included: Vec::new(),
         })
     }
 }

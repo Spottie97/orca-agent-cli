@@ -18,6 +18,12 @@ pub struct ExecutionResult {
     pub duration_ms: Option<u64>,
     pub input_tokens: Option<u32>,
     pub output_tokens: Option<u32>,
+    #[serde(default)]
+    pub context_packet_path: Option<String>,
+    #[serde(default)]
+    pub prompt_included_context: bool,
+    #[serde(default)]
+    pub prompt_sections_included: Vec<String>,
 }
 
 impl ExecutionResult {
@@ -46,6 +52,9 @@ impl ExecutionResult {
             duration_ms: response.duration_ms,
             input_tokens: response.input_tokens,
             output_tokens: response.output_tokens,
+            context_packet_path: response.context_packet_path.clone(),
+            prompt_included_context: response.prompt_included_context,
+            prompt_sections_included: response.prompt_sections_included.clone(),
         }
     }
 }
@@ -111,6 +120,9 @@ mod tests {
             duration_ms: Some(123),
             input_tokens: Some(10),
             output_tokens: Some(5),
+            context_packet_path: None,
+            prompt_included_context: true,
+            prompt_sections_included: vec!["task_metadata".to_string()],
         };
 
         let result = ExecutionResult::from_response(&response);
@@ -136,6 +148,9 @@ mod tests {
             duration_ms: None,
             input_tokens: None,
             output_tokens: None,
+            context_packet_path: None,
+            prompt_included_context: false,
+            prompt_sections_included: Vec::new(),
         };
 
         let result = ExecutionResult::from_response(&response);
@@ -157,6 +172,9 @@ mod tests {
             duration_ms: None,
             input_tokens: None,
             output_tokens: None,
+            context_packet_path: None,
+            prompt_included_context: false,
+            prompt_sections_included: Vec::new(),
         };
 
         let result = ExecutionResult::from_response(&response);
@@ -181,6 +199,12 @@ mod tests {
             duration_ms: Some(100),
             input_tokens: Some(10),
             output_tokens: Some(5),
+            context_packet_path: None,
+            prompt_included_context: true,
+            prompt_sections_included: vec![
+                "task_metadata".to_string(),
+                "execution_instructions".to_string(),
+            ],
         };
 
         let path = save_result(&orca_dir, &response).unwrap();

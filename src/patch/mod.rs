@@ -115,6 +115,9 @@ mod tests {
             duration_ms: None,
             input_tokens: None,
             output_tokens: None,
+            context_packet_path: None,
+            prompt_included_context: false,
+            prompt_sections_included: Vec::new(),
         };
 
         let proposal = PatchProposal::from_response(&response).unwrap();
@@ -137,6 +140,9 @@ mod tests {
             duration_ms: None,
             input_tokens: None,
             output_tokens: None,
+            context_packet_path: None,
+            prompt_included_context: false,
+            prompt_sections_included: Vec::new(),
         };
 
         assert!(PatchProposal::from_response(&response).is_none());

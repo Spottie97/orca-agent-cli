@@ -183,6 +183,9 @@ impl OllamaProvider {
             duration_ms,
             input_tokens: parsed.prompt_eval_count,
             output_tokens: parsed.eval_count,
+            context_packet_path: None,
+            prompt_included_context: false,
+            prompt_sections_included: Vec::new(),
         })
     }
 }
