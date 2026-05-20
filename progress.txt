@@ -35,7 +35,7 @@ Stories completed:
 - ORCA-025: Prompt library (2ff6f45)
 
 Current story:
-- ORCA-028: Documentation
+- ORCA-029: Final polish
 
 Next stories:
-- ORCA-029: Final polish
+- None — MVP complete
