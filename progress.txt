@@ -8,13 +8,18 @@ Phase: Implementation
 Status: In Progress
 
 Stories completed:
-- ORCA-001: Initialize Rust CLI project structure (committed afe63cb)
-- ORCA-002: Add clap CLI shell with all MVP commands (committed 7a848f1)
-- ORCA-003: Add typed config schema and loader (committed 1c096f8)
+- ORCA-001: Initialize Rust CLI project structure (afe63cb)
+- ORCA-002: Add clap CLI shell with all MVP commands (7a848f1)
+- ORCA-003: Add typed config schema and loader (1c096f8)
+- ORCA-004: Implement orca init (22a65f1)
+- ORCA-005: Config validation and orca config validate (9d685c5)
+- ORCA-006: Provider traits and shared types (e4a45f2)
+- ORCA-007: Mock provider (e4a45f2)
 
 Current story:
-- ORCA-004: Implement orca init
+- ORCA-008: Implement routing policy and decision types
 
 Next stories:
-- ORCA-005: Implement config validation and orca config validate
-- ORCA-006: Implement provider traits and shared types
+- ORCA-009: Implement orca route
+- ORCA-010: Implement memory store
+- ORCA-011: Obsidian-compatible note writer
