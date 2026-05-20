@@ -4,20 +4,16 @@ Date: 2026-05-20
 Project: Orca Agent CLI (Rust)
 
 ---
-Phase: Planning
+Phase: Implementation
 Status: In Progress
 
-Pre-flight checks:
-- Rust 1.95.0 (stable-x86_64-pc-windows-msv) ✓
-- Cargo 1.95.0 ✓
-- Git repo initialized, no commits yet ✓
-- No existing source files (clean slate) ✓
-- Empty tasks/, docs/, .orca/ directories present ✓
-- Build plan orca_agent_cli_build_plan.md read ✓
-- PRD written to tasks/prd-orca-agent-cli.md ✓
-- prd.json created with 29 Ralph stories ✓
+Stories completed:
+- ORCA-001: Initialize Rust CLI project structure (committed afe63cb)
 
-Next:
-- Update CLAUDE.md and AGENTS.md with project context
-- Get user approval on PRD/story list
-- Begin Story ORCA-001: Initialize Rust CLI project structure
+Current story:
+- ORCA-002: Add clap CLI shell with all MVP commands
+
+Next stories:
+- ORCA-003: Add typed config schema and loader
+- ORCA-004: Implement orca init
+- ORCA-005: Implement config validation and orca config validate

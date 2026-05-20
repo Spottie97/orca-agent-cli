@@ -1,1 +1,103 @@
-// TODO: implement CLI tests
+use std::process::Command;
+
+use assert_cmd::prelude::*;
+use predicates::prelude::*;
+
+#[test]
+fn test_orca_help() {
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("--help");
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Orca Agent CLI"));
+}
+
+#[test]
+fn test_orca_init_help() {
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["init", "--help"]);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Initialize"));
+}
+
+#[test]
+fn test_orca_config_validate_help() {
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["config", "validate", "--help"]);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Validate"));
+}
+
+#[test]
+fn test_orca_scan_help() {
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["scan", "--help"]);
+    cmd.assert().success();
+}
+
+#[test]
+fn test_orca_context_help() {
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["context", "--help"]);
+    cmd.assert().success();
+}
+
+#[test]
+fn test_orca_route_help() {
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["route", "--help"]);
+    cmd.assert().success();
+}
+
+#[test]
+fn test_orca_plan_help() {
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--help"]);
+    cmd.assert().success();
+}
+
+#[test]
+fn test_orca_execute_help() {
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["execute", "--help"]);
+    cmd.assert().success();
+}
+
+#[test]
+fn test_orca_review_help() {
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["review", "--help"]);
+    cmd.assert().success();
+}
+
+#[test]
+fn test_orca_memory_help() {
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["memory", "--help"]);
+    cmd.assert().success();
+}
+
+#[test]
+fn test_orca_run_help() {
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["run", "--help"]);
+    cmd.assert().success();
+}
+
+#[test]
+fn test_orca_status_help() {
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["status", "--help"]);
+    cmd.assert().success();
+}
+
+#[test]
+fn test_orca_init_runs() {
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Initializing"));
+}
