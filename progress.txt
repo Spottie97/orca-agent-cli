@@ -35,8 +35,7 @@ Stories completed:
 - ORCA-025: Prompt library (2ff6f45)
 
 Current story:
-- ORCA-027: Integration tests
+- ORCA-028: Documentation
 
 Next stories:
-- ORCA-028: Documentation
 - ORCA-029: Final polish
