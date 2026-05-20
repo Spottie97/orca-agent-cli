@@ -252,3 +252,27 @@ fn test_orca_memory_update() {
     assert!(state_contents.contains("TASK-001"));
     assert!(state_contents.contains("complete"));
 }
+
+#[test]
+fn test_orca_plan() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Task graph written to"));
+
+    let graph_path = tmp.path().join(".orca/task-graph.yaml");
+    assert!(graph_path.exists());
+    let contents = std::fs::read_to_string(&graph_path).unwrap();
+    assert!(contents.contains("TASK-001"));
+    assert!(contents.contains("TASK-002"));
+    assert!(contents.contains("TASK-003"));
+}
