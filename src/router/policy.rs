@@ -1,7 +1,7 @@
 use crate::config::schema::{Config, ModelsConfig};
 use crate::providers::ProviderKind;
 use crate::router::decision::RoutingDecision;
-use crate::tasks::{Task, TaskComplexity, TaskType};
+use crate::tasks::{Task, TaskComplexity, TaskRisk, TaskType};
 
 pub fn route(task: &Task, config: &Config) -> RoutingDecision {
     let models = &config.models;
@@ -14,39 +14,74 @@ pub fn route(task: &Task, config: &Config) -> RoutingDecision {
     // Task type based routing
     match task.task_type {
         TaskType::Summary | TaskType::Compression | TaskType::MemoryUpdate | TaskType::Docs => {
-            ollama_decision(models)
+            summary_decision(models)
         }
 
-        TaskType::Architecture
-        | TaskType::Decomposition
-        | TaskType::RiskAnalysis
-        | TaskType::Planning => claude_decision(task, models),
-
-        TaskType::Implementation | TaskType::Tests | TaskType::Refactor | TaskType::Review => {
-            if task.context_is_exact && task.estimated_files_touched <= 2 {
-                codex_decision(task, models)
-            } else if task.requires_repo_search || task.estimated_files_touched >= 3 {
-                cursor_composer_decision(task, models)
-            } else {
-                codex_decision(task, models)
-            }
+        TaskType::Architecture | TaskType::Decomposition | TaskType::RiskAnalysis => {
+            architecture_decision(task, models)
         }
 
-        TaskType::Debugging => {
-            if task.risk == crate::tasks::TaskRisk::High
-                || task.complexity == TaskComplexity::Critical
-            {
-                cursor_premium_decision(task, models, config)
-            } else {
-                cursor_composer_decision(task, models)
-            }
+        TaskType::Planning => planning_decision(task, models, config),
+
+        TaskType::Implementation | TaskType::Refactor => {
+            implementation_decision(task, models, config)
         }
 
-        TaskType::Research => ollama_decision(models),
+        TaskType::Tests => tests_decision(task, models, config),
+
+        TaskType::Review => review_decision(task, models, config),
+
+        TaskType::Debugging => debugging_decision(task, models, config),
+
+        TaskType::Research => research_decision(models),
     }
 }
 
-fn ollama_decision(models: &ModelsConfig) -> RoutingDecision {
+fn provider_enabled(kind: ProviderKind, models: &ModelsConfig) -> bool {
+    match kind {
+        ProviderKind::Ollama => models.ollama.enabled,
+        ProviderKind::Anthropic => models.claude.enabled,
+        ProviderKind::OpenAi => models.codex.enabled,
+        ProviderKind::Cursor => models.cursor.enabled,
+        _ => true,
+    }
+}
+
+fn provider_from_name(name: &str) -> ProviderKind {
+    match name {
+        "ollama" => ProviderKind::Ollama,
+        "claude" | "anthropic" => ProviderKind::Anthropic,
+        "codex" | "openai" => ProviderKind::OpenAi,
+        "cursor" | "cursor_composer" => ProviderKind::Cursor,
+        _ => ProviderKind::Manual,
+    }
+}
+
+fn model_for_provider(kind: ProviderKind, models: &ModelsConfig) -> String {
+    match kind {
+        ProviderKind::Ollama => models.ollama.default_model.clone(),
+        ProviderKind::Anthropic => models.claude.default_model.clone(),
+        ProviderKind::OpenAi => models.codex.default_model.clone(),
+        ProviderKind::Cursor => models.cursor.composer_model_id.clone(),
+        ProviderKind::Manual => "manual".to_string(),
+        _ => "mock".to_string(),
+    }
+}
+
+fn manual_decision(reason: impl Into<String>) -> RoutingDecision {
+    RoutingDecision {
+        provider: ProviderKind::Manual,
+        model: "manual".to_string(),
+        reason: reason.into(),
+        requires_approval: true,
+        risk: "medium".to_string(),
+        estimated_cost_class: "free".to_string(),
+        fallback_provider: ProviderKind::Mock,
+        notes: vec!["No automated provider is available; manual execution required.".to_string()],
+    }
+}
+
+fn summary_decision(models: &ModelsConfig) -> RoutingDecision {
     RoutingDecision::simple(
         ProviderKind::Ollama,
         models.ollama.default_model.clone(),
@@ -54,7 +89,79 @@ fn ollama_decision(models: &ModelsConfig) -> RoutingDecision {
     )
 }
 
-fn claude_decision(task: &Task, models: &ModelsConfig) -> RoutingDecision {
+fn research_decision(models: &ModelsConfig) -> RoutingDecision {
+    RoutingDecision::simple(
+        ProviderKind::Ollama,
+        models.ollama.default_model.clone(),
+        "Ollama is the cheapest option for research and information gathering.",
+    )
+}
+
+fn planning_decision(task: &Task, models: &ModelsConfig, config: &Config) -> RoutingDecision {
+    let is_low = task.complexity == TaskComplexity::Low && task.risk == TaskRisk::Low;
+    let is_high = task.complexity == TaskComplexity::High
+        || task.complexity == TaskComplexity::Critical
+        || task.risk == TaskRisk::High;
+
+    if is_low {
+        if provider_enabled(ProviderKind::Ollama, models) {
+            return RoutingDecision::simple(
+                ProviderKind::Ollama,
+                models.ollama.default_model.clone(),
+                "Low-risk planning tasks are routed to Ollama for cost efficiency.",
+            );
+        }
+        return manual_decision("Low-risk planning task; no cheap provider enabled.");
+    }
+
+    if is_high {
+        if provider_enabled(ProviderKind::Anthropic, models) {
+            return RoutingDecision {
+                provider: ProviderKind::Anthropic,
+                model: models.claude.default_model.clone(),
+                reason: "High-complexity or high-risk planning requires Claude for deep reasoning."
+                    .to_string(),
+                requires_approval: true,
+                risk: "high".to_string(),
+                estimated_cost_class: "premium".to_string(),
+                fallback_provider: ProviderKind::Manual,
+                notes: vec!["Claude provides the best reasoning for complex planning.".to_string()],
+            };
+        }
+        return manual_decision("High-complexity planning task; no premium provider enabled.");
+    }
+
+    // Medium complexity: use default_planner from config
+    let planner_name = config.routing.default_planner.as_str();
+    let planner_kind = provider_from_name(planner_name);
+    if planner_kind != ProviderKind::Manual && provider_enabled(planner_kind, models) {
+        let model = model_for_provider(planner_kind, models);
+        let reason = format!(
+            "Medium-complexity planning routed to default planner ({})",
+            planner_name
+        );
+        return RoutingDecision::simple(planner_kind, model, reason);
+    }
+
+    // Fallback: try ollama, then claude, then manual
+    if provider_enabled(ProviderKind::Ollama, models) {
+        return RoutingDecision::simple(
+            ProviderKind::Ollama,
+            models.ollama.default_model.clone(),
+            "Medium-complexity planning routed to Ollama (default planner unavailable).",
+        );
+    }
+    if provider_enabled(ProviderKind::Anthropic, models) {
+        return RoutingDecision::simple(
+            ProviderKind::Anthropic,
+            models.claude.default_model.clone(),
+            "Medium-complexity planning routed to Claude (default planner unavailable).",
+        );
+    }
+    manual_decision("Medium-complexity planning task; no providers enabled.")
+}
+
+fn architecture_decision(task: &Task, models: &ModelsConfig) -> RoutingDecision {
     let requires_approval = task.complexity == TaskComplexity::Critical
         || matches!(
             task.task_type,
@@ -64,7 +171,7 @@ fn claude_decision(task: &Task, models: &ModelsConfig) -> RoutingDecision {
     RoutingDecision {
         provider: ProviderKind::Anthropic,
         model: models.claude.default_model.clone(),
-        reason: "Claude Opus is best for architecture, planning, decomposition, and risk analysis."
+        reason: "Claude Opus is best for architecture, decomposition, and risk analysis."
             .to_string(),
         requires_approval,
         risk: if task.complexity == TaskComplexity::Critical {
@@ -74,43 +181,159 @@ fn claude_decision(task: &Task, models: &ModelsConfig) -> RoutingDecision {
         },
         estimated_cost_class: "premium".to_string(),
         fallback_provider: ProviderKind::OpenAi,
-        notes: vec!["Claude requires large context for planning tasks.".to_string()],
+        notes: vec!["Claude requires large context for architecture tasks.".to_string()],
     }
 }
 
-fn codex_decision(task: &Task, models: &ModelsConfig) -> RoutingDecision {
+fn implementation_decision(task: &Task, models: &ModelsConfig, config: &Config) -> RoutingDecision {
+    let repo_aware = task.requires_repo_search || task.estimated_files_touched >= 3;
+    let config_name = if repo_aware {
+        config.routing.default_repo_executor.as_str()
+    } else {
+        config.routing.default_scoped_executor.as_str()
+    };
+    let kind = provider_from_name(config_name);
+    let model = model_for_provider(kind, models);
+
+    let reason = if repo_aware {
+        format!(
+            "Implementation task with repo-wide scope routed to {}",
+            config_name
+        )
+    } else {
+        format!(
+            "Scoped implementation task with exact context routed to {}",
+            config_name
+        )
+    };
+
     RoutingDecision {
-        provider: ProviderKind::OpenAi,
-        model: models.codex.default_model.clone(),
-        reason:
-            "Codex is best for scoped implementation where exact files and instructions are known."
-                .to_string(),
+        provider: kind,
+        model,
+        reason,
         requires_approval: false,
         risk: match task.risk {
-            crate::tasks::TaskRisk::Low => "low".to_string(),
-            crate::tasks::TaskRisk::Medium => "medium".to_string(),
-            crate::tasks::TaskRisk::High => "high".to_string(),
+            TaskRisk::Low => "low".to_string(),
+            TaskRisk::Medium => "medium".to_string(),
+            TaskRisk::High => "high".to_string(),
         },
         estimated_cost_class: "standard".to_string(),
-        fallback_provider: ProviderKind::Cursor,
-        notes: vec!["Codex works best with exact context packets.".to_string()],
+        fallback_provider: if kind == ProviderKind::Cursor {
+            ProviderKind::Anthropic
+        } else {
+            ProviderKind::Cursor
+        },
+        notes: if repo_aware {
+            vec![format!(
+                "{} supports repo search and multi-file edits.",
+                config_name
+            )]
+        } else {
+            vec![format!(
+                "{} works best with exact context packets.",
+                config_name
+            )]
+        },
     }
 }
 
-fn cursor_composer_decision(task: &Task, models: &ModelsConfig) -> RoutingDecision {
+fn tests_decision(task: &Task, models: &ModelsConfig, config: &Config) -> RoutingDecision {
+    let repo_aware = task.requires_repo_search || task.estimated_files_touched >= 3;
+    let config_name = if repo_aware {
+        config.routing.default_repo_executor.as_str()
+    } else {
+        config.routing.default_scoped_executor.as_str()
+    };
+    let kind = provider_from_name(config_name);
+    let model = model_for_provider(kind, models);
+
+    let reason = if repo_aware {
+        format!("Testing task with broad coverage routed to {}", config_name)
+    } else {
+        format!("Focused testing task routed to {}", config_name)
+    };
+
     RoutingDecision {
-        provider: ProviderKind::Cursor,
-        model: models.cursor.composer_model_id.clone(),
-        reason: "Cursor Composer is the default repo-aware coding executor.".to_string(),
+        provider: kind,
+        model,
+        reason,
         requires_approval: false,
         risk: match task.risk {
-            crate::tasks::TaskRisk::Low => "low".to_string(),
-            crate::tasks::TaskRisk::Medium => "medium".to_string(),
-            crate::tasks::TaskRisk::High => "high".to_string(),
+            TaskRisk::Low => "low".to_string(),
+            TaskRisk::Medium => "medium".to_string(),
+            TaskRisk::High => "high".to_string(),
         },
         estimated_cost_class: "standard".to_string(),
-        fallback_provider: ProviderKind::Anthropic,
-        notes: vec!["Cursor Composer has abundant usage and supports repo search.".to_string()],
+        fallback_provider: if kind == ProviderKind::Cursor {
+            ProviderKind::Anthropic
+        } else {
+            ProviderKind::Cursor
+        },
+        notes: vec!["Test execution requires exact file context or repo search.".to_string()],
+    }
+}
+
+fn review_decision(task: &Task, models: &ModelsConfig, config: &Config) -> RoutingDecision {
+    let repo_aware = task.requires_repo_search || task.estimated_files_touched >= 3;
+    let config_name = if repo_aware {
+        config.routing.default_repo_executor.as_str()
+    } else {
+        config.routing.default_scoped_executor.as_str()
+    };
+    let kind = provider_from_name(config_name);
+    let model = model_for_provider(kind, models);
+
+    let reason = if repo_aware {
+        format!("Review task with broad scope routed to {}", config_name)
+    } else {
+        format!("Focused review task routed to {}", config_name)
+    };
+
+    RoutingDecision {
+        provider: kind,
+        model,
+        reason,
+        requires_approval: false,
+        risk: match task.risk {
+            TaskRisk::Low => "low".to_string(),
+            TaskRisk::Medium => "medium".to_string(),
+            TaskRisk::High => "high".to_string(),
+        },
+        estimated_cost_class: "standard".to_string(),
+        fallback_provider: if kind == ProviderKind::Cursor {
+            ProviderKind::Anthropic
+        } else {
+            ProviderKind::Cursor
+        },
+        notes: vec!["Review requires reading and reasoning about code changes.".to_string()],
+    }
+}
+
+fn debugging_decision(task: &Task, models: &ModelsConfig, config: &Config) -> RoutingDecision {
+    if task.risk == TaskRisk::High || task.complexity == TaskComplexity::Critical {
+        cursor_premium_decision(task, models, config)
+    } else {
+        let config_name = config.routing.default_repo_executor.as_str();
+        let kind = provider_from_name(config_name);
+        let model = if kind == ProviderKind::Cursor {
+            models.cursor.composer_model_id.clone()
+        } else {
+            model_for_provider(kind, models)
+        };
+        RoutingDecision {
+            provider: kind,
+            model,
+            reason: "Cursor Composer is the default repo-aware debugging executor.".to_string(),
+            requires_approval: false,
+            risk: match task.risk {
+                TaskRisk::Low => "low".to_string(),
+                TaskRisk::Medium => "medium".to_string(),
+                TaskRisk::High => "high".to_string(),
+            },
+            estimated_cost_class: "standard".to_string(),
+            fallback_provider: ProviderKind::Anthropic,
+            notes: vec!["Cursor Composer has abundant usage and supports repo search.".to_string()],
+        }
     }
 }
 
@@ -158,7 +381,7 @@ mod tests {
         RoutingConfig,
     };
     use crate::providers::ProviderKind;
-    use crate::tasks::{Task, TaskComplexity, TaskRisk, TaskType};
+    use crate::tasks::{Task, TaskComplexity, TaskRisk, TaskStatus, TaskType};
     use std::path::PathBuf;
 
     fn test_config() -> Config {
@@ -185,7 +408,7 @@ mod tests {
             task_type,
             complexity: TaskComplexity::Medium,
             risk: TaskRisk::Low,
-            status: crate::tasks::TaskStatus::Pending,
+            status: TaskStatus::Pending,
             requires_repo_search: false,
             estimated_files_touched: 1,
             context_is_exact: true,
@@ -249,5 +472,82 @@ mod tests {
         let decision = route(&task, &config);
         assert_eq!(decision.provider, ProviderKind::Cursor);
         assert!(decision.requires_approval);
+    }
+
+    #[test]
+    fn test_route_low_risk_planning_to_ollama() {
+        let config = test_config();
+        let mut task = test_task(TaskType::Planning);
+        task.complexity = TaskComplexity::Low;
+        task.risk = TaskRisk::Low;
+        let decision = route(&task, &config);
+        assert_eq!(decision.provider, ProviderKind::Ollama);
+        assert!(decision.reason.to_lowercase().contains("planning"));
+    }
+
+    #[test]
+    fn test_route_high_complexity_planning_to_claude() {
+        let config = test_config();
+        let mut task = test_task(TaskType::Planning);
+        task.complexity = TaskComplexity::High;
+        let decision = route(&task, &config);
+        assert_eq!(decision.provider, ProviderKind::Anthropic);
+        assert!(decision.requires_approval);
+        assert!(decision.reason.to_lowercase().contains("planning"));
+    }
+
+    #[test]
+    fn test_route_medium_planning_uses_default_planner() {
+        let config = test_config();
+        let task = test_task(TaskType::Planning);
+        // Default planner is "claude"
+        let decision = route(&task, &config);
+        assert_eq!(decision.provider, ProviderKind::Anthropic);
+        assert!(decision.reason.to_lowercase().contains("planning"));
+    }
+
+    #[test]
+    fn test_route_planning_fallback_to_manual_when_no_providers_enabled() {
+        let mut config = test_config();
+        config.models.ollama.enabled = false;
+        config.models.claude.enabled = false;
+        config.models.codex.enabled = false;
+        config.models.cursor.enabled = false;
+        let mut task = test_task(TaskType::Planning);
+        task.complexity = TaskComplexity::Low;
+        task.risk = TaskRisk::Low;
+        let decision = route(&task, &config);
+        assert_eq!(decision.provider, ProviderKind::Manual);
+    }
+
+    #[test]
+    fn test_route_planning_reason_mentions_planning_not_implementation() {
+        let config = test_config();
+        let task = test_task(TaskType::Planning);
+        let decision = route(&task, &config);
+        assert!(
+            !decision.reason.to_lowercase().contains("implementation"),
+            "Planning reason must not mention implementation: {}",
+            decision.reason
+        );
+        assert!(decision.reason.to_lowercase().contains("planning"));
+    }
+
+    #[test]
+    fn test_route_tests_has_test_reason() {
+        let config = test_config();
+        let mut task = test_task(TaskType::Tests);
+        task.estimated_files_touched = 1;
+        let decision = route(&task, &config);
+        assert!(decision.reason.to_lowercase().contains("test"));
+    }
+
+    #[test]
+    fn test_route_review_has_review_reason() {
+        let config = test_config();
+        let mut task = test_task(TaskType::Review);
+        task.estimated_files_touched = 1;
+        let decision = route(&task, &config);
+        assert!(decision.reason.to_lowercase().contains("review"));
     }
 }

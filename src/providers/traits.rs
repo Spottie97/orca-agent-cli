@@ -10,6 +10,7 @@ pub enum ProviderKind {
     OpenAi,
     Cursor,
     Command,
+    Manual,
 }
 
 impl std::fmt::Display for ProviderKind {
@@ -21,6 +22,7 @@ impl std::fmt::Display for ProviderKind {
             ProviderKind::OpenAi => write!(f, "openai"),
             ProviderKind::Cursor => write!(f, "cursor"),
             ProviderKind::Command => write!(f, "command"),
+            ProviderKind::Manual => write!(f, "manual"),
         }
     }
 }

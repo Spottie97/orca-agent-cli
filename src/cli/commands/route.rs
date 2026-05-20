@@ -83,6 +83,6 @@ fn parse_task_type(s: Option<&str>) -> TaskType {
         Some("review") => TaskType::Review,
         Some("debugging") => TaskType::Debugging,
         Some("research") => TaskType::Research,
-        _ => TaskType::Implementation,
+        _ => TaskType::Planning,
     }
 }

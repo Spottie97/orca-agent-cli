@@ -69,6 +69,8 @@ pub struct ModelsConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OllamaModelConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
     #[serde(default = "default_ollama_base_url")]
     pub base_url: String,
     #[serde(default = "default_ollama_model")]
@@ -80,6 +82,7 @@ pub struct OllamaModelConfig {
 impl Default for OllamaModelConfig {
     fn default() -> Self {
         Self {
+            enabled: true,
             base_url: default_ollama_base_url(),
             default_model: default_ollama_model(),
             role: default_ollama_role(),
@@ -90,6 +93,8 @@ impl Default for OllamaModelConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ClaudeModelConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
     #[serde(default = "default_claude_provider")]
     pub provider: String,
     #[serde(default = "default_claude_model")]
@@ -103,6 +108,7 @@ pub struct ClaudeModelConfig {
 impl Default for ClaudeModelConfig {
     fn default() -> Self {
         Self {
+            enabled: true,
             provider: default_claude_provider(),
             default_model: default_claude_model(),
             role: default_claude_role(),
@@ -114,6 +120,8 @@ impl Default for ClaudeModelConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CodexModelConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
     #[serde(default = "default_codex_provider")]
     pub provider: String,
     #[serde(default = "default_codex_model")]
@@ -125,6 +133,7 @@ pub struct CodexModelConfig {
 impl Default for CodexModelConfig {
     fn default() -> Self {
         Self {
+            enabled: true,
             provider: default_codex_provider(),
             default_model: default_codex_model(),
             role: default_codex_role(),
@@ -135,6 +144,8 @@ impl Default for CodexModelConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CursorModelConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
     #[serde(default = "default_cursor_composer_model")]
     pub composer_model_id: String,
     #[serde(default = "default_cursor_premium_model")]
@@ -150,6 +161,7 @@ pub struct CursorModelConfig {
 impl Default for CursorModelConfig {
     fn default() -> Self {
         Self {
+            enabled: true,
             composer_model_id: default_cursor_composer_model(),
             premium_model_id: default_cursor_premium_model(),
             provider: default_cursor_provider(),

@@ -261,9 +261,9 @@ fn test_orca_context_dry_run() {
     let mut cmd = Command::cargo_bin("orca").unwrap();
     cmd.args(["context", "--dry-run", "TASK-001"]);
     cmd.current_dir(&tmp);
-    cmd.assert()
-        .success()
-        .stdout(predicate::str::contains("Dry run: would write context packet"));
+    cmd.assert().success().stdout(predicate::str::contains(
+        "Dry run: would write context packet",
+    ));
 
     let packet_path = tmp.path().join(".orca/context-packets/TASK-001.md");
     assert!(
@@ -344,10 +344,7 @@ fn test_orca_memory_update_dry_run() {
 
     // Record initial state file mtime to detect modifications
     let state_path = tmp.path().join(".orca/state.json");
-    let initial_mtime = std::fs::metadata(&state_path)
-        .unwrap()
-        .modified()
-        .unwrap();
+    let initial_mtime = std::fs::metadata(&state_path).unwrap().modified().unwrap();
 
     let mut cmd = Command::cargo_bin("orca").unwrap();
     cmd.args(["memory", "update", "--dry-run", "TASK-001"]);
@@ -362,10 +359,7 @@ fn test_orca_memory_update_dry_run() {
         "memory update --dry-run must not create task note"
     );
 
-    let final_mtime = std::fs::metadata(&state_path)
-        .unwrap()
-        .modified()
-        .unwrap();
+    let final_mtime = std::fs::metadata(&state_path).unwrap().modified().unwrap();
     assert_eq!(
         initial_mtime, final_mtime,
         "memory update --dry-run must not modify state.json"
