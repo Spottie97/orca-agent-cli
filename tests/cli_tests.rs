@@ -227,3 +227,28 @@ fn test_orca_review() {
         .stdout(predicate::str::contains("Review for TASK-001"))
         .stdout(predicate::str::contains("Verdict"));
 }
+
+#[test]
+fn test_orca_memory_update() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["memory", "update", "TASK-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Memory updated for task TASK-001"));
+
+    let task_note = tmp.path().join(".orca/tasks/TASK-001.md");
+    assert!(task_note.exists());
+
+    let state_path = tmp.path().join(".orca/state.json");
+    let state_contents = std::fs::read_to_string(&state_path).unwrap();
+    assert!(state_contents.contains("TASK-001"));
+    assert!(state_contents.contains("complete"));
+}
