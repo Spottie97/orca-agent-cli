@@ -33,9 +33,16 @@ Stories completed:
 - ORCA-023: orca run --dry-run
 - ORCA-024: orca status
 - ORCA-025: Prompt library (2ff6f45)
+- ORCA-026: Secret redaction
+- ORCA-027: Integration tests
+- ORCA-028: Documentation
+- ORCA-029: Final polish
+- HOTFIX-001: Fix init --dry-run (b666a6b)
+- HOTFIX-002: Fix run --dry-run misleading output (a8e2eff)
+- ORCA-030: Fix MVP routing policy for planning tasks (21732d8)
 
 Current story:
-- ORCA-029: Final polish
+- None — all stories complete
 
 Next stories:
 - None — MVP complete

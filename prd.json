@@ -583,6 +583,28 @@
         "cargo build"
       ],
       "passes": false
+    },
+    {
+      "id": "ORCA-030",
+      "title": "Fix MVP routing policy for planning tasks",
+      "description": "Separate Planning from Architecture/Decomposition/RiskAnalysis routing. Add ProviderKind::Manual and model enabled flags. Route planning tasks to Ollama (low risk), default planner (medium), or Claude (high complexity), with Manual fallback. Ensure reasons mention planning, not implementation.",
+      "acceptance_criteria": [
+        "Planning tasks route separately from Architecture",
+        "Low-risk planning routes to Ollama",
+        "Medium planning uses config default_planner",
+        "High-complexity planning routes to Claude",
+        "Disabled providers fallback to Manual",
+        "Planning reasons do not mention implementation",
+        "route.rs defaults to Planning task type",
+        "All tests pass"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": true
     }
   ]
 }
