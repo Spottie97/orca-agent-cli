@@ -1,6 +1,7 @@
 use crate::config::schema::{Config, ModelsConfig};
 use crate::providers::{
-    mock::MockProvider, openai::OpenAiProvider, traits::Provider, ProviderKind,
+    mock::MockProvider, ollama::OllamaProvider, openai::OpenAiProvider, traits::Provider,
+    ProviderKind,
 };
 
 /// Create a provider instance from a routing decision and config.
@@ -8,6 +9,13 @@ use crate::providers::{
 pub fn create_provider(kind: ProviderKind, config: &Config) -> Box<dyn Provider> {
     match kind {
         ProviderKind::OpenAi => Box::new(OpenAiProvider::from_config(&config.models.openai)),
+        ProviderKind::Ollama => {
+            if config.models.ollama.enabled {
+                Box::new(OllamaProvider::from_config(&config.models.ollama))
+            } else {
+                Box::new(MockProvider::default())
+            }
+        }
         _ => Box::new(MockProvider::default()),
     }
 }
@@ -16,6 +24,13 @@ pub fn create_provider(kind: ProviderKind, config: &Config) -> Box<dyn Provider>
 pub fn create_provider_from_models(kind: ProviderKind, models: &ModelsConfig) -> Box<dyn Provider> {
     match kind {
         ProviderKind::OpenAi => Box::new(OpenAiProvider::from_config(&models.openai)),
+        ProviderKind::Ollama => {
+            if models.ollama.enabled {
+                Box::new(OllamaProvider::from_config(&models.ollama))
+            } else {
+                Box::new(MockProvider::default())
+            }
+        }
         _ => Box::new(MockProvider::default()),
     }
 }
@@ -33,6 +48,13 @@ mod tests {
     }
 
     #[test]
+    fn test_factory_returns_ollama_provider_when_enabled() {
+        let models = ModelsConfig::default();
+        let provider = create_provider_from_models(ProviderKind::Ollama, &models);
+        assert_eq!(provider.kind(), ProviderKind::Ollama);
+    }
+
+    #[test]
     fn test_factory_returns_mock_for_unsupported() {
         let models = ModelsConfig::default();
         let provider = create_provider_from_models(ProviderKind::Mock, &models);
@@ -40,8 +62,9 @@ mod tests {
     }
 
     #[test]
-    fn test_factory_returns_mock_for_ollama() {
-        let models = ModelsConfig::default();
+    fn test_factory_returns_mock_for_disabled_ollama() {
+        let mut models = ModelsConfig::default();
+        models.ollama.enabled = false;
         let provider = create_provider_from_models(ProviderKind::Ollama, &models);
         assert_eq!(provider.kind(), ProviderKind::Mock);
     }

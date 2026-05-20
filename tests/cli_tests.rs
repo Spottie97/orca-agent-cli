@@ -3,6 +3,13 @@ use std::process::Command;
 use assert_cmd::prelude::*;
 use predicates::prelude::*;
 
+fn disable_ollama(tmp: &tempfile::TempDir) {
+    let config_path = tmp.path().join(".orca/config.yaml");
+    let contents = std::fs::read_to_string(&config_path).unwrap();
+    let updated = contents.replace("ollama:\n    enabled: true", "ollama:\n    enabled: false");
+    std::fs::write(&config_path, updated).unwrap();
+}
+
 #[test]
 fn test_orca_help() {
     let mut cmd = Command::cargo_bin("orca").unwrap();
@@ -370,6 +377,8 @@ fn test_orca_review_considers_execution_result() {
     cmd.current_dir(&tmp);
     cmd.assert().success();
 
+    disable_ollama(&tmp);
+
     let mut cmd = Command::cargo_bin("orca").unwrap();
     cmd.args(["plan", "--planner", "manual"]);
     cmd.current_dir(&tmp);
@@ -479,6 +488,8 @@ fn test_orca_memory_update_with_execution_result() {
     cmd.arg("init");
     cmd.current_dir(&tmp);
     cmd.assert().success();
+
+    disable_ollama(&tmp);
 
     let mut cmd = Command::cargo_bin("orca").unwrap();
     cmd.args(["plan", "--planner", "manual"]);
@@ -967,6 +978,8 @@ fn test_orca_execute_creates_result_file() {
     cmd.current_dir(&tmp);
     cmd.assert().success();
 
+    disable_ollama(&tmp);
+
     let mut cmd = Command::cargo_bin("orca").unwrap();
     cmd.args(["plan", "--planner", "manual"]);
     cmd.current_dir(&tmp);
@@ -1024,6 +1037,8 @@ fn test_orca_run_creates_result_file() {
     cmd.current_dir(&tmp);
     cmd.assert().success();
 
+    disable_ollama(&tmp);
+
     let mut cmd = Command::cargo_bin("orca").unwrap();
     cmd.args(["plan", "--planner", "manual"]);
     cmd.current_dir(&tmp);
@@ -1054,6 +1069,8 @@ fn test_orca_execute_creates_no_patch_when_no_files_changed() {
     cmd.arg("init");
     cmd.current_dir(&tmp);
     cmd.assert().success();
+
+    disable_ollama(&tmp);
 
     let mut cmd = Command::cargo_bin("orca").unwrap();
     cmd.args(["plan", "--planner", "manual"]);
