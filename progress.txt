@@ -15,11 +15,29 @@ Stories completed:
 - ORCA-005: Config validation and orca config validate (9d685c5)
 - ORCA-006: Provider traits and shared types (e4a45f2)
 - ORCA-007: Mock provider (e4a45f2)
+- ORCA-008: Implement routing policy and decision types
+- ORCA-009: Implement orca route
+- ORCA-010: Implement memory store and safe file writing
+- ORCA-011: Obsidian-compatible note writer
+- ORCA-012: Lightweight graph memory model
+- ORCA-013: Context packet schema and renderer
+- ORCA-014: Implement orca context
 
 Current story:
-- ORCA-008: Implement routing policy and decision types
+- ORCA-015: Implement repo scanning and orca scan
 
 Next stories:
-- ORCA-009: Implement orca route
-- ORCA-010: Implement memory store
-- ORCA-011: Obsidian-compatible note writer
+- ORCA-016: Task lifecycle
+- ORCA-017: Dry-run execution
+- ORCA-018: Review schema
+- ORCA-019: Memory update flow
+- ORCA-020: Approval gates
+- ORCA-021: Provider adapter skeletons
+- ORCA-022: orca plan
+- ORCA-023: orca run --dry-run
+- ORCA-024: orca status
+- ORCA-025: Prompt library
+- ORCA-026: Secret redaction
+- ORCA-027: Integration tests
+- ORCA-028: Documentation
+- ORCA-029: Final polish
