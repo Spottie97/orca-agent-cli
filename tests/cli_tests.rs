@@ -191,3 +191,21 @@ fn test_orca_scan() {
     let scan_path = tmp.path().join(".orca/scans/latest.md");
     assert!(scan_path.exists());
 }
+
+#[test]
+fn test_orca_execute_dry_run() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["execute", "--dry-run", "TASK-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("DRY RUN"))
+        .stdout(predicate::str::contains("No API calls were made"));
+}

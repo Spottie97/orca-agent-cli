@@ -76,7 +76,7 @@ pub fn run() -> Result<()> {
         Commands::Context(args) => commands::context::run(args),
         Commands::Route(args) => commands::route::run(args),
         Commands::Plan(args) => commands::plan::run(args),
-        Commands::Execute(args) => commands::execute::run(args),
+        Commands::Execute(args) => commands::execute::run(args, cli.dry_run),
         Commands::Review(args) => commands::review::run(args),
         Commands::Memory(cmd) => commands::memory::run(cmd),
         Commands::Run(args) => commands::run::run(args),
