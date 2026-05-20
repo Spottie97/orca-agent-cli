@@ -700,3 +700,127 @@ fn test_orca_review_missing_task_fails() {
         .stderr(predicate::str::contains("TASK-999"))
         .stderr(predicate::str::contains("task-graph.yaml"));
 }
+
+#[test]
+fn test_orca_route_json() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["route", "TASK-001", "--json"]);
+    cmd.current_dir(&tmp);
+    let assert = cmd.assert().success();
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).expect("route --json should emit valid JSON");
+    assert_eq!(parsed["task_id"], "TASK-001");
+    assert!(!parsed["provider"].as_str().unwrap().is_empty());
+}
+
+#[test]
+fn test_orca_route_json_no_headings() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["route", "TASK-001", "--json"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Routing decision").not());
+}
+
+#[test]
+fn test_orca_run_json_dry_run() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["run", "--dry-run", "TASK-001", "--json"]);
+    cmd.current_dir(&tmp);
+    let assert = cmd.assert().success();
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).expect("run --dry-run --json should emit valid JSON");
+    assert_eq!(parsed["task_id"], "TASK-001");
+    assert_eq!(parsed["mode"], "dry-run");
+    assert!(!parsed["provider"].as_str().unwrap().is_empty());
+    assert!(!parsed["review_verdict"].as_str().unwrap().is_empty());
+}
+
+#[test]
+fn test_orca_run_json_no_headings() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["run", "--dry-run", "TASK-001", "--json"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("=== Orca Run").not())
+        .stdout(predicate::str::contains("[1/5]").not());
+}
+
+#[test]
+fn test_orca_init_json_rejected() {
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["init", "--json"]);
+    cmd.assert().failure().stderr(
+        predicate::str::contains("unexpected argument").or(predicate::str::contains("--json")),
+    );
+}
+
+#[test]
+fn test_orca_review_json_rejected() {
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["review", "TASK-001", "--json"]);
+    cmd.assert().failure().stderr(
+        predicate::str::contains("unexpected argument").or(predicate::str::contains("--json")),
+    );
+}
+
+#[test]
+fn test_orca_execute_json_rejected() {
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["execute", "TASK-001", "--json"]);
+    cmd.assert().failure().stderr(
+        predicate::str::contains("unexpected argument").or(predicate::str::contains("--json")),
+    );
+}

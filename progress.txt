@@ -41,6 +41,7 @@ Stories completed:
 - HOTFIX-002: Fix run --dry-run misleading output (a8e2eff)
 - ORCA-030: Fix MVP routing policy for planning tasks (21732d8, 23fe9ef)
 - HOTFIX-003: Reject missing explicit task IDs instead of fallback tasks (f1b385f)
+- HOTFIX-004: Fix --json output flag
 
 Current story:
 - None — all stories complete

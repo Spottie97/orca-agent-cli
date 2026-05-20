@@ -7,6 +7,7 @@ use clap::Args;
 use crate::config::schema::Config;
 use crate::router::route;
 use crate::tasks::{resolve_task_from_graph, TaskType};
+use serde::Serialize;
 
 #[derive(Args)]
 pub struct RouteArgs {
@@ -15,6 +16,22 @@ pub struct RouteArgs {
 
     #[arg(long, help = "Task type override")]
     pub task_type: Option<String>,
+
+    #[arg(long, help = "Output in JSON format")]
+    pub json: bool,
+}
+
+#[derive(Serialize)]
+struct RouteOutput {
+    task_id: String,
+    provider: String,
+    model: String,
+    reason: String,
+    requires_approval: bool,
+    risk: String,
+    estimated_cost_class: String,
+    fallback_provider: String,
+    notes: Vec<String>,
 }
 
 pub fn run(args: RouteArgs) -> Result<()> {
@@ -44,26 +61,43 @@ pub fn run(args: RouteArgs) -> Result<()> {
 
     let decision = route(&task, &config);
 
-    println!("Routing decision for {}", args.task_id);
-    println!("  Provider: {}", decision.provider);
-    println!("  Model: {}", decision.model);
-    println!("  Reason: {}", decision.reason);
-    println!(
-        "  Approval required: {}",
-        if decision.requires_approval {
-            "yes"
-        } else {
-            "no"
-        }
-    );
-    println!("  Risk: {}", decision.risk);
-    println!("  Estimated cost class: {}", decision.estimated_cost_class);
-    println!("  Fallback provider: {}", decision.fallback_provider);
+    if args.json {
+        let output = RouteOutput {
+            task_id: args.task_id.clone(),
+            provider: decision.provider.to_string(),
+            model: decision.model.clone(),
+            reason: decision.reason.clone(),
+            requires_approval: decision.requires_approval,
+            risk: decision.risk.clone(),
+            estimated_cost_class: decision.estimated_cost_class.clone(),
+            fallback_provider: decision.fallback_provider.to_string(),
+            notes: decision.notes.clone(),
+        };
+        let json = serde_json::to_string_pretty(&output)
+            .with_context(|| "Failed to serialize route output to JSON")?;
+        println!("{}", json);
+    } else {
+        println!("Routing decision for {}", args.task_id);
+        println!("  Provider: {}", decision.provider);
+        println!("  Model: {}", decision.model);
+        println!("  Reason: {}", decision.reason);
+        println!(
+            "  Approval required: {}",
+            if decision.requires_approval {
+                "yes"
+            } else {
+                "no"
+            }
+        );
+        println!("  Risk: {}", decision.risk);
+        println!("  Estimated cost class: {}", decision.estimated_cost_class);
+        println!("  Fallback provider: {}", decision.fallback_provider);
 
-    if !decision.notes.is_empty() {
-        println!("  Notes:");
-        for note in &decision.notes {
-            println!("    - {}", note);
+        if !decision.notes.is_empty() {
+            println!("  Notes:");
+            for note in &decision.notes {
+                println!("    - {}", note);
+            }
         }
     }
 

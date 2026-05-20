@@ -26,9 +26,6 @@ pub struct Cli {
     #[arg(long, global = true, help = "Auto-approve all gates without prompting")]
     pub yes: bool,
 
-    #[arg(long, global = true, help = "Output in JSON format")]
-    pub json: bool,
-
     #[command(subcommand)]
     pub command: Commands,
 }

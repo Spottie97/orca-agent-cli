@@ -2,13 +2,14 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use clap::Args;
+use serde::Serialize;
 
 use crate::approvals::{check_approval, ApprovalCheck, ApprovalConfig};
 use crate::config::schema::Config;
 use crate::context::{render_markdown, ContextPacket};
 use crate::memory::MemoryStore;
 use crate::providers::mock::MockProvider;
-use crate::providers::traits::{Provider, ProviderRequest};
+use crate::providers::traits::{CostEstimate, Provider, ProviderRequest};
 use crate::review::review_task;
 use crate::router::route;
 use crate::state::{self, State, TaskState};
@@ -22,6 +23,21 @@ pub struct RunArgs {
 
     #[arg(long, help = "Provider to use")]
     pub provider: Option<String>,
+
+    #[arg(long, help = "Output in JSON format")]
+    pub json: bool,
+}
+
+#[derive(Serialize)]
+struct RunOutput {
+    task_id: String,
+    mode: String,
+    provider: String,
+    model: String,
+    approval_blocked: Option<String>,
+    estimated_cost: Option<CostEstimate>,
+    review_verdict: String,
+    review_next_step: String,
 }
 
 pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
@@ -32,10 +48,12 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
     let orca_dir = &config.project.orca_dir;
     let state_path = orca_dir.join("state.json");
 
-    if dry_run {
-        println!("=== Orca Run (dry-run): {} ===", args.task_id);
-    } else {
-        println!("=== Orca Run: {} ===", args.task_id);
+    if !args.json {
+        if dry_run {
+            println!("=== Orca Run (dry-run): {} ===", args.task_id);
+        } else {
+            println!("=== Orca Run: {} ===", args.task_id);
+        }
     }
 
     // Step 1: Build task from task graph if available
@@ -50,13 +68,15 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
             ));
         }
     };
-    if dry_run {
-        println!(
-            "[1/5] Dry run: loaded task {} ({:?})",
-            args.task_id, task.task_type
-        );
-    } else {
-        println!("[1/5] Task loaded: {} ({:?})", args.task_id, task.task_type);
+    if !args.json {
+        if dry_run {
+            println!(
+                "[1/5] Dry run: loaded task {} ({:?})",
+                args.task_id, task.task_type
+            );
+        } else {
+            println!("[1/5] Task loaded: {} ({:?})", args.task_id, task.task_type);
+        }
     }
 
     // Step 2: Generate context packet
@@ -78,14 +98,31 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
     if !dry_run {
         safe_write(&context_path, &render_markdown(&packet))?;
     }
-    if dry_run {
-        println!(
-            "[2/5] Dry run: would write context packet to {}",
-            context_path.display()
-        );
-    } else {
-        println!("[2/5] Context packet written to {}", context_path.display());
+    if !args.json {
+        if dry_run {
+            println!(
+                "[2/5] Dry run: would write context packet to {}",
+                context_path.display()
+            );
+        } else {
+            println!("[2/5] Context packet written to {}", context_path.display());
+        }
     }
+
+    let mut output = RunOutput {
+        task_id: args.task_id.clone(),
+        mode: if dry_run {
+            "dry-run".to_string()
+        } else {
+            "real".to_string()
+        },
+        provider: decision.provider.to_string(),
+        model: decision.model.clone(),
+        approval_blocked: None,
+        estimated_cost: None,
+        review_verdict: String::new(),
+        review_next_step: String::new(),
+    };
 
     // Step 3: Check approval gates
     let approval_config = ApprovalConfig {
@@ -95,29 +132,40 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
     };
     match check_approval(&task, &decision, &approval_config, yes) {
         ApprovalCheck::Block(reason) => {
-            if dry_run {
-                println!("[3/5] Dry run: approval gate would block: {}", reason);
+            output.approval_blocked = Some(reason.clone());
+            if args.json {
+                let json = serde_json::to_string_pretty(&output)
+                    .with_context(|| "Failed to serialize run output to JSON")?;
+                println!("{}", json);
             } else {
-                println!("[3/5] Approval gate blocked: {}", reason);
+                if dry_run {
+                    println!("[3/5] Dry run: approval gate would block: {}", reason);
+                } else {
+                    println!("[3/5] Approval gate blocked: {}", reason);
+                }
+                println!("Loop halted.");
             }
-            println!("Loop halted.");
             return Ok(());
         }
         ApprovalCheck::Pass => {
-            if dry_run {
-                println!("[3/5] Dry run: would check approval gate (would pass)");
-            } else {
-                println!("[3/5] Approval gate passed");
+            if !args.json {
+                if dry_run {
+                    println!("[3/5] Dry run: would check approval gate (would pass)");
+                } else {
+                    println!("[3/5] Approval gate passed");
+                }
             }
         }
     }
 
     // Step 4: Execute (dry-run uses mock)
     if dry_run {
-        println!(
-            "[4/5] Dry run: would execute provider {} (mock)",
-            decision.provider
-        );
+        if !args.json {
+            println!(
+                "[4/5] Dry run: would execute provider {} (mock)",
+                decision.provider
+            );
+        }
         let provider = MockProvider::default();
         let request = ProviderRequest {
             task_id: args.task_id.clone(),
@@ -127,29 +175,39 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
             max_tokens: None,
         };
         let cost = provider.estimate_cost(&request);
-        println!("  Provider: {} (mock)", decision.provider);
-        println!("  Model: {}", decision.model);
-        println!(
-            "  Estimated cost: {} input tokens, {} output tokens",
-            cost.input_tokens, cost.output_tokens
-        );
-        println!("  No API calls were made.");
+        output.estimated_cost = Some(cost);
+        if !args.json {
+            println!("  Provider: {} (mock)", decision.provider);
+            println!("  Model: {}", decision.model);
+            println!(
+                "  Estimated cost: {} input tokens, {} output tokens",
+                output.estimated_cost.as_ref().unwrap().input_tokens,
+                output.estimated_cost.as_ref().unwrap().output_tokens
+            );
+            println!("  No API calls were made.");
+        }
     } else {
-        println!("[4/5] Execution (real mode not yet implemented in MVP)");
+        if !args.json {
+            println!("[4/5] Execution (real mode not yet implemented in MVP)");
+        }
     }
 
     // Step 5: Review
     let review_result = review_task(&task);
-    if dry_run {
-        println!(
-            "[5/5] Dry run: would review result (verdict: {} — {})",
-            review_result.verdict, review_result.recommended_next_step
-        );
-    } else {
-        println!(
-            "[5/5] Review: {} — {}",
-            review_result.verdict, review_result.recommended_next_step
-        );
+    output.review_verdict = review_result.verdict.to_string();
+    output.review_next_step = review_result.recommended_next_step.clone();
+    if !args.json {
+        if dry_run {
+            println!(
+                "[5/5] Dry run: would review result (verdict: {} — {})",
+                review_result.verdict, review_result.recommended_next_step
+            );
+        } else {
+            println!(
+                "[5/5] Review: {} — {}",
+                review_result.verdict, review_result.recommended_next_step
+            );
+        }
     }
 
     // Step 6: Update memory
@@ -183,12 +241,19 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
         );
         store.append_to_note("tasks", &args.task_id, &history_entry)?;
     }
-    if dry_run {
-        println!("Dry run: would update memory (state + task history)");
-        println!("=== Dry run complete; no files were changed ===");
+
+    if args.json {
+        let json = serde_json::to_string_pretty(&output)
+            .with_context(|| "Failed to serialize run output to JSON")?;
+        println!("{}", json);
     } else {
-        println!("Memory updated.");
-        println!("=== Run complete ===");
+        if dry_run {
+            println!("Dry run: would update memory (state + task history)");
+            println!("=== Dry run complete; no files were changed ===");
+        } else {
+            println!("Memory updated.");
+            println!("=== Run complete ===");
+        }
     }
 
     Ok(())
