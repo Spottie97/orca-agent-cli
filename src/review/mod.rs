@@ -1,1 +1,3 @@
-// TODO: implement review module
+pub mod reviewer;
+
+pub use reviewer::{review_task, ReviewResult, ReviewVerdict};

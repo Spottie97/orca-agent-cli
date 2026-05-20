@@ -209,3 +209,21 @@ fn test_orca_execute_dry_run() {
         .stdout(predicate::str::contains("DRY RUN"))
         .stdout(predicate::str::contains("No API calls were made"));
 }
+
+#[test]
+fn test_orca_review() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["review", "TASK-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Review for TASK-001"))
+        .stdout(predicate::str::contains("Verdict"));
+}
