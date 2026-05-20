@@ -145,16 +145,28 @@ fn contains_refusal_patterns(output: &str) -> bool {
 }
 
 /// Check whether the output appears to satisfy the acceptance criteria.
-/// This is a heuristic: for each criterion, check if key phrases from it appear in the output.
+///
+/// For criteria containing "exactly" or "must be", extracts the expected literal
+/// substring and checks for exact containment. Otherwise falls back to heuristic
+/// word matching.
 fn check_acceptance_criteria(output: &str, criteria: &[String]) -> Vec<String> {
     let lower_output = output.to_lowercase();
     let mut unmet = Vec::new();
+
     for criterion in criteria {
-        // Extract key words (skip common stop words)
         let key_phrase = criterion.to_lowercase();
-        // Simple heuristic: if the criterion text is not found verbatim or partially,
-        // treat it as potentially unmet. For stricter checking, we look for at least
-        // one distinctive word from the criterion.
+
+        // Exact-match branch: criterion asks for an exact string
+        if key_phrase.contains("exactly") || key_phrase.contains("must be") {
+            if let Some(expected) = extract_exact_expected_value(&key_phrase) {
+                if !lower_output.contains(&expected) {
+                    unmet.push(criterion.clone());
+                }
+                continue;
+            }
+        }
+
+        // Fallback heuristic: check if at least one distinctive word appears
         let words: Vec<&str> = key_phrase
             .split_whitespace()
             .filter(|w| {
@@ -186,6 +198,40 @@ fn check_acceptance_criteria(output: &str, criteria: &[String]) -> Vec<String> {
         }
     }
     unmet
+}
+
+/// Extract the expected literal value from an exact-match criterion.
+/// Handles quoted strings and text after "exactly" / "must be".
+fn extract_exact_expected_value(criterion_lower: &str) -> Option<String> {
+    // Look for quoted substring
+    if let Some(start) = criterion_lower.find('"') {
+        if let Some(end) = criterion_lower[start + 1..].find('"') {
+            let quoted = &criterion_lower[start + 1..start + 1 + end];
+            if !quoted.is_empty() {
+                return Some(quoted.to_string());
+            }
+        }
+    }
+
+    // Look for text after "exactly"
+    if let Some(pos) = criterion_lower.find("exactly ") {
+        let rest = &criterion_lower[pos + 8..];
+        let trimmed = rest.trim().trim_end_matches(['.', '!', '?']);
+        if !trimmed.is_empty() {
+            return Some(trimmed.to_string());
+        }
+    }
+
+    // Look for text after "must be"
+    if let Some(pos) = criterion_lower.find("must be ") {
+        let rest = &criterion_lower[pos + 8..];
+        let trimmed = rest.trim().trim_end_matches(['.', '!', '?']);
+        if !trimmed.is_empty() {
+            return Some(trimmed.to_string());
+        }
+    }
+
+    None
 }
 
 pub fn review_task(
@@ -265,6 +311,25 @@ pub fn review_task(
         }
     }
 
+    // Fail closed: reject if no execution data is available
+    if execution_output.is_none() && execution_status.is_none() {
+        return ReviewResult {
+            task_id: task.id.clone(),
+            accepted: false,
+            verdict: ReviewVerdict::Reject,
+            reasons: vec!["No execution result available for review.".to_string()],
+            missing_criteria: task.acceptance_criteria.clone(),
+            unmet_acceptance_criteria: task.acceptance_criteria.clone(),
+            risks: vec!["Cannot verify completion without execution output.".to_string()],
+            recommended_next_step: "Execute the task first, then review.".to_string(),
+            execution_output: None,
+            execution_status: None,
+            duration_ms,
+            input_tokens,
+            output_tokens,
+        };
+    }
+
     // Check acceptance criteria even on success
     let unmet_criteria = if let Some(output) = execution_output {
         check_acceptance_criteria(output, &task.acceptance_criteria)
@@ -313,7 +378,7 @@ pub fn review_task(
         }
     }
 
-    // Default: accept if criteria exist or no data
+    // Default: accept only when we have data and no issues found
     ReviewResult {
         task_id: task.id.clone(),
         accepted: true,
@@ -371,9 +436,28 @@ mod tests {
     }
 
     #[test]
-    fn test_review_task_accepts_when_no_criteria() {
+    fn test_review_task_rejects_when_no_execution_data() {
         let task = Task::new("T1", "Test", TaskType::Implementation);
         let result = review_task(&task, None, None, None, None, None);
+        assert_eq!(result.verdict, ReviewVerdict::Reject);
+        assert!(!result.accepted);
+        assert!(result
+            .reasons
+            .iter()
+            .any(|r| r.contains("No execution result")));
+    }
+
+    #[test]
+    fn test_review_task_accepts_when_no_criteria_but_has_data() {
+        let task = Task::new("T1", "Test", TaskType::Implementation);
+        let result = review_task(
+            &task,
+            Some("Build completed successfully"),
+            Some("success"),
+            None,
+            None,
+            None,
+        );
         assert_eq!(result.verdict, ReviewVerdict::Accept);
     }
 
@@ -501,5 +585,77 @@ mod tests {
         assert_eq!(result.verdict, ReviewVerdict::Accept);
         assert!(result.accepted);
         assert!(result.unmet_acceptance_criteria.is_empty());
+    }
+
+    #[test]
+    fn test_review_exact_match_criterion_rejects_when_missing() {
+        let mut task = Task::new("T1", "Test", TaskType::Implementation);
+        task.acceptance_criteria
+            .push("Output must be exactly ORCA_CLOUD_OK.".to_string());
+        let result = review_task(
+            &task,
+            Some("Generic success output."),
+            Some("success"),
+            None,
+            None,
+            None,
+        );
+        assert_eq!(result.verdict, ReviewVerdict::Reject);
+        assert!(!result.accepted);
+        assert!(result
+            .unmet_acceptance_criteria
+            .contains(&"Output must be exactly ORCA_CLOUD_OK.".to_string()));
+    }
+
+    #[test]
+    fn test_review_exact_match_criterion_accepts_when_present() {
+        let mut task = Task::new("T1", "Test", TaskType::Implementation);
+        task.acceptance_criteria
+            .push("Output must be exactly ORCA_CLOUD_OK.".to_string());
+        let result = review_task(
+            &task,
+            Some("ORCA_CLOUD_OK"),
+            Some("success"),
+            None,
+            None,
+            None,
+        );
+        assert_eq!(result.verdict, ReviewVerdict::Accept);
+        assert!(result.accepted);
+        assert!(result.unmet_acceptance_criteria.is_empty());
+    }
+
+    #[test]
+    fn test_review_exact_match_quoted_string() {
+        let mut task = Task::new("T1", "Test", TaskType::Implementation);
+        task.acceptance_criteria
+            .push("Output must contain \"EXACT_PHRASE\".".to_string());
+        let result = review_task(
+            &task,
+            Some("Here is EXACT_PHRASE in the output."),
+            Some("success"),
+            None,
+            None,
+            None,
+        );
+        assert_eq!(result.verdict, ReviewVerdict::Accept);
+        assert!(result.accepted);
+    }
+
+    #[test]
+    fn test_review_exact_match_quoted_string_rejects_when_missing() {
+        let mut task = Task::new("T1", "Test", TaskType::Implementation);
+        task.acceptance_criteria
+            .push("Output must contain \"EXACT_PHRASE\".".to_string());
+        let result = review_task(
+            &task,
+            Some("Here is something else."),
+            Some("success"),
+            None,
+            None,
+            None,
+        );
+        assert_eq!(result.verdict, ReviewVerdict::Reject);
+        assert!(!result.accepted);
     }
 }

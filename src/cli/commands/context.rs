@@ -71,9 +71,7 @@ pub fn run(args: ContextArgs, dry_run: bool) -> Result<()> {
             "no"
         }
     );
-    packet
-        .acceptance_criteria
-        .push("Task completes successfully".to_string());
+    packet.acceptance_criteria = task.acceptance_criteria.clone();
     packet.constraints.push("Minimize token usage".to_string());
 
     let md = render_markdown(&packet);

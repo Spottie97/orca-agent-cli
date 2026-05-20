@@ -29,6 +29,8 @@ pub struct TaskNode {
     pub dependencies: Vec<String>,
     #[serde(default)]
     pub status: String,
+    #[serde(default)]
+    pub acceptance_criteria: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,6 +62,7 @@ impl TaskGraph {
                 risk: "low".to_string(),
                 dependencies: Vec::new(),
                 status: "pending".to_string(),
+                acceptance_criteria: Vec::new(),
             },
             TaskNode {
                 id: "TASK-002".to_string(),
@@ -70,6 +73,7 @@ impl TaskGraph {
                 risk: "medium".to_string(),
                 dependencies: vec!["TASK-001".to_string()],
                 status: "pending".to_string(),
+                acceptance_criteria: Vec::new(),
             },
             TaskNode {
                 id: "TASK-003".to_string(),
@@ -80,6 +84,7 @@ impl TaskGraph {
                 risk: "low".to_string(),
                 dependencies: vec!["TASK-002".to_string()],
                 status: "pending".to_string(),
+                acceptance_criteria: Vec::new(),
             },
         ];
         graph
@@ -106,6 +111,7 @@ pub fn run(args: PlanArgs, dry_run: bool) -> Result<()> {
             risk: "low".to_string(),
             dependencies: Vec::new(),
             status: "pending".to_string(),
+            acceptance_criteria: Vec::new(),
         });
         graph
     };
@@ -159,6 +165,7 @@ mod tests {
             risk: "low".to_string(),
             dependencies: Vec::new(),
             status: "pending".to_string(),
+            acceptance_criteria: Vec::new(),
         });
         let yaml = serde_yaml::to_string(&graph).unwrap();
         let parsed: TaskGraph = serde_yaml::from_str(&yaml).unwrap();

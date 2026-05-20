@@ -40,7 +40,7 @@ pub fn task_node_to_task(node: TaskNode) -> Task {
         estimated_files_touched: node.dependencies.len() as u32 + 1,
         context_is_exact: node.dependencies.is_empty(),
         failure_count: 0,
-        acceptance_criteria: Vec::new(),
+        acceptance_criteria: node.acceptance_criteria,
     }
 }
 
@@ -159,6 +159,39 @@ tasks:
         .unwrap();
         let task = resolve_task_from_graph(tmpfile.path(), "TASK-999").unwrap();
         assert!(task.is_none());
+    }
+
+    #[test]
+    fn test_resolve_task_propagates_acceptance_criteria() {
+        let mut tmpfile = tempfile::NamedTempFile::new().unwrap();
+        write!(
+            tmpfile,
+            r#"
+version: "1.0"
+project: Test
+tasks:
+  - id: TASK-AC
+    title: Smoke test
+    description: Reply with OK.
+    task_type: tests
+    complexity: low
+    risk: low
+    dependencies: []
+    status: pending
+    acceptance_criteria:
+      - Output must be exactly ORCA_CLOUD_OK.
+"#
+        )
+        .unwrap();
+        let task = resolve_task_from_graph(tmpfile.path(), "TASK-AC")
+            .unwrap()
+            .expect("task should be found");
+        assert_eq!(task.id, "TASK-AC");
+        assert_eq!(task.acceptance_criteria.len(), 1);
+        assert_eq!(
+            task.acceptance_criteria[0],
+            "Output must be exactly ORCA_CLOUD_OK."
+        );
     }
 
     #[test]

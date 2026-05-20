@@ -93,9 +93,7 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
         "Provider: {} | Model: {} | Reason: {}",
         decision.provider, decision.model, decision.reason
     );
-    packet
-        .acceptance_criteria
-        .push("Task completes successfully".to_string());
+    packet.acceptance_criteria = task.acceptance_criteria.clone();
 
     let context_path = orca_dir
         .join("context-packets")

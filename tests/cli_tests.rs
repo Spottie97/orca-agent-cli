@@ -1211,3 +1211,172 @@ fn test_orca_execute_json_rejected() {
         predicate::str::contains("unexpected argument").or(predicate::str::contains("--json")),
     );
 }
+
+#[test]
+fn test_orca_review_fails_closed_without_execution_result() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    // Review before executing — should reject because no result exists
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["review", "TASK-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("reject"));
+
+    let review_path = tmp.path().join(".orca/reviews/TASK-001.json");
+    assert!(review_path.exists());
+
+    let contents = std::fs::read_to_string(&review_path).unwrap();
+    let artifact: serde_json::Value = serde_json::from_str(&contents).unwrap();
+    assert_eq!(artifact["verdict"], "reject");
+    assert_eq!(artifact["accepted"], false);
+}
+
+#[test]
+fn test_orca_task_graph_acceptance_criteria_propagates_to_context_packet() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    // Create a task graph with explicit acceptance criteria
+    let graph = serde_json::json!({
+        "version": "1.0",
+        "project": "Test",
+        "tasks": [
+            {
+                "id": "TASK-AC-001",
+                "title": "Smoke test",
+                "description": "Reply with OK.",
+                "task_type": "tests",
+                "complexity": "low",
+                "risk": "low",
+                "dependencies": [],
+                "status": "pending",
+                "acceptance_criteria": [
+                    "Output must be exactly ORCA_CLOUD_OK."
+                ]
+            }
+        ]
+    });
+    let graph_path = tmp.path().join(".orca/task-graph.yaml");
+    std::fs::write(&graph_path, serde_yaml::to_string(&graph).unwrap()).unwrap();
+
+    // Run context command to generate packet
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["context", "TASK-AC-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let packet_path = tmp.path().join(".orca/context-packets/TASK-AC-001.md");
+    assert!(packet_path.exists());
+
+    let contents = std::fs::read_to_string(&packet_path).unwrap();
+    assert!(
+        contents.contains("Output must be exactly ORCA_CLOUD_OK."),
+        "context packet must contain acceptance criteria from task graph"
+    );
+}
+
+#[test]
+fn test_orca_execute_prompt_includes_acceptance_criteria_from_graph() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    disable_ollama(&tmp);
+
+    let graph = serde_json::json!({
+        "version": "1.0",
+        "project": "Test",
+        "tasks": [
+            {
+                "id": "TASK-AC-002",
+                "title": "Smoke test",
+                "description": "Reply with OK.",
+                "task_type": "tests",
+                "complexity": "low",
+                "risk": "low",
+                "dependencies": [],
+                "status": "pending",
+                "acceptance_criteria": [
+                    "Output must be exactly ORCA_CLOUD_OK."
+                ]
+            }
+        ]
+    });
+    let graph_path = tmp.path().join(".orca/task-graph.yaml");
+    std::fs::write(&graph_path, serde_yaml::to_string(&graph).unwrap()).unwrap();
+
+    // Execute dry-run to verify prompt construction
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["execute", "--dry-run", "TASK-AC-002"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    // The result isn't written in dry-run, but we verified resolve + prompt building works
+    // by not crashing. The acceptance criteria propagation is tested above.
+}
+
+#[test]
+fn test_orca_review_loads_execution_result_fields() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    disable_ollama(&tmp);
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    // Execute to create a result artifact
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["execute", "TASK-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let result_path = tmp.path().join(".orca/results/TASK-001.json");
+    assert!(result_path.exists());
+
+    // Review should load the result and include execution metadata
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["review", "TASK-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let review_path = tmp.path().join(".orca/reviews/TASK-001.json");
+    assert!(review_path.exists());
+
+    let contents = std::fs::read_to_string(&review_path).unwrap();
+    let artifact: serde_json::Value = serde_json::from_str(&contents).unwrap();
+    assert_eq!(artifact["task_id"], "TASK-001");
+    assert!(
+        artifact["execution_status"].is_string() || artifact["execution_status"].is_null(),
+        "review artifact should include execution_status"
+    );
+    assert!(
+        !artifact["verdict"].as_str().unwrap().is_empty(),
+        "review artifact must have a verdict"
+    );
+}

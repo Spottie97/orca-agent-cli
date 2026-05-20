@@ -49,8 +49,10 @@ pub fn build_provider_prompt(
     }
 
     // Context packet section
-    let context_content = context_packet
-        .map_or_else(|| build_minimal_context(task), crate::context::render_markdown);
+    let context_content = context_packet.map_or_else(
+        || build_minimal_context(task),
+        crate::context::render_markdown,
+    );
 
     if !context_content.is_empty() {
         prompt.push_str("## Context Packet\n");
