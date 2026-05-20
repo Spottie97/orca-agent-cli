@@ -12,7 +12,7 @@ use crate::providers::traits::{Provider, ProviderRequest};
 use crate::review::review_task;
 use crate::router::route;
 use crate::state::{self, State, TaskState};
-use crate::tasks::{fallback_task, resolve_task_from_graph};
+use crate::tasks::resolve_task_from_graph;
 use crate::utils::fs::safe_write;
 
 #[derive(Args)]
@@ -43,18 +43,11 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
     let task = match resolve_task_from_graph(&graph_path, &args.task_id)? {
         Some(t) => t,
         None => {
-            if dry_run {
-                println!(
-                    "[1/5] Dry run: task {} not found in graph; using fallback",
-                    args.task_id
-                );
-            } else {
-                println!(
-                    "[1/5] Warning: task {} not found in task graph. Using fallback.",
-                    args.task_id
-                );
-            }
-            fallback_task(&args.task_id)
+            return Err(anyhow::anyhow!(
+                "task {} not found in {}",
+                args.task_id,
+                graph_path.display()
+            ));
         }
     };
     if dry_run {

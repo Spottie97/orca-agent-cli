@@ -6,7 +6,7 @@ use clap::Args;
 use crate::config::schema::Config;
 use crate::context::{render_markdown, ContextPacket};
 use crate::router::route;
-use crate::tasks::{fallback_task, resolve_task_from_graph};
+use crate::tasks::resolve_task_from_graph;
 use crate::utils::fs::safe_write;
 
 #[derive(Args)]
@@ -43,11 +43,11 @@ pub fn run(args: ContextArgs, dry_run: bool) -> Result<()> {
     let task = match resolve_task_from_graph(&graph_path, &args.task_id)? {
         Some(t) => t,
         None => {
-            println!(
-                "Warning: task {} not found in task graph. Using fallback.",
-                args.task_id
-            );
-            fallback_task(&args.task_id)
+            return Err(anyhow::anyhow!(
+                "task {} not found in {}",
+                args.task_id,
+                graph_path.display()
+            ));
         }
     };
 

@@ -8,7 +8,7 @@ use crate::config::schema::Config;
 use crate::providers::mock::MockProvider;
 use crate::providers::traits::{Provider, ProviderRequest};
 use crate::router::route;
-use crate::tasks::{fallback_task, resolve_task_from_graph};
+use crate::tasks::resolve_task_from_graph;
 
 #[derive(Args)]
 pub struct ExecuteArgs {
@@ -28,11 +28,11 @@ pub fn run(args: ExecuteArgs, dry_run: bool, yes: bool) -> Result<()> {
     let task = match resolve_task_from_graph(&graph_path, &args.task_id)? {
         Some(t) => t,
         None => {
-            println!(
-                "Warning: task {} not found in task graph. Using fallback.",
-                args.task_id
-            );
-            fallback_task(&args.task_id)
+            return Err(anyhow::anyhow!(
+                "task {} not found in {}",
+                args.task_id,
+                graph_path.display()
+            ));
         }
     };
 

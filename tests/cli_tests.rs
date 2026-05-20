@@ -202,6 +202,11 @@ fn test_orca_route() {
     cmd.assert().success();
 
     let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
     cmd.args(["route", "TASK-001"]);
     cmd.current_dir(&tmp);
     cmd.assert()
@@ -215,6 +220,11 @@ fn test_orca_context() {
 
     let mut cmd = Command::cargo_bin("orca").unwrap();
     cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
     cmd.current_dir(&tmp);
     cmd.assert().success();
 
@@ -259,6 +269,11 @@ fn test_orca_context_dry_run() {
     cmd.assert().success();
 
     let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
     cmd.args(["context", "--dry-run", "TASK-001"]);
     cmd.current_dir(&tmp);
     cmd.assert().success().stdout(predicate::str::contains(
@@ -282,6 +297,11 @@ fn test_orca_execute_dry_run() {
     cmd.assert().success();
 
     let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
     cmd.args(["execute", "--dry-run", "TASK-001"]);
     cmd.current_dir(&tmp);
     cmd.assert()
@@ -296,6 +316,11 @@ fn test_orca_review() {
 
     let mut cmd = Command::cargo_bin("orca").unwrap();
     cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
     cmd.current_dir(&tmp);
     cmd.assert().success();
 
@@ -400,6 +425,11 @@ fn test_orca_run_dry_run() {
     cmd.assert().success();
 
     let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
     cmd.args(["run", "--dry-run", "TASK-001"]);
     cmd.current_dir(&tmp);
     cmd.assert()
@@ -418,6 +448,11 @@ fn test_orca_run_dry_run_no_misleading_output() {
 
     let mut cmd = Command::cargo_bin("orca").unwrap();
     cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
     cmd.current_dir(&tmp);
     cmd.assert().success();
 
@@ -443,6 +478,11 @@ fn test_orca_run_dry_run_global() {
 
     let mut cmd = Command::cargo_bin("orca").unwrap();
     cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
     cmd.current_dir(&tmp);
     cmd.assert().success();
 
@@ -564,7 +604,7 @@ fn test_orca_route_task_003_test_type() {
 }
 
 #[test]
-fn test_orca_route_missing_task_warns() {
+fn test_orca_route_missing_task_fails() {
     let tmp = tempfile::tempdir().unwrap();
 
     let mut cmd = Command::cargo_bin("orca").unwrap();
@@ -576,7 +616,87 @@ fn test_orca_route_missing_task_warns() {
     cmd.args(["route", "TASK-999"]);
     cmd.current_dir(&tmp);
     cmd.assert()
-        .success()
-        .stdout(predicate::str::contains("Warning"))
-        .stdout(predicate::str::contains("not found"));
+        .failure()
+        .stderr(predicate::str::contains("TASK-999"))
+        .stderr(predicate::str::contains("task-graph.yaml"));
+}
+
+#[test]
+fn test_orca_context_missing_task_fails() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["context", "--dry-run", "TASK-999"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .failure()
+        .stderr(predicate::str::contains("TASK-999"))
+        .stderr(predicate::str::contains("task-graph.yaml"));
+
+    let context_path = tmp.path().join(".orca/context-packets/TASK-999.md");
+    assert!(!context_path.exists());
+}
+
+#[test]
+fn test_orca_run_missing_task_fails() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["run", "--dry-run", "TASK-999"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .failure()
+        .stderr(predicate::str::contains("TASK-999"))
+        .stderr(predicate::str::contains("task-graph.yaml"));
+
+    let context_path = tmp.path().join(".orca/context-packets/TASK-999.md");
+    assert!(!context_path.exists());
+    let task_note = tmp.path().join(".orca/tasks/TASK-999.md");
+    assert!(!task_note.exists());
+}
+
+#[test]
+fn test_orca_execute_missing_task_fails() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["execute", "--dry-run", "TASK-999"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .failure()
+        .stderr(predicate::str::contains("TASK-999"))
+        .stderr(predicate::str::contains("task-graph.yaml"));
+}
+
+#[test]
+fn test_orca_review_missing_task_fails() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["review", "TASK-999"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .failure()
+        .stderr(predicate::str::contains("TASK-999"))
+        .stderr(predicate::str::contains("task-graph.yaml"));
 }

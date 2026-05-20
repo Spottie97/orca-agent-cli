@@ -49,6 +49,26 @@ pub fn fallback_task(task_id: &str) -> Task {
     Task::new(task_id, format!("Task {}", task_id), TaskType::Planning)
 }
 
+/// Strictly resolve a task by ID from the task graph.
+/// Returns an error if the graph exists but the task ID is not found.
+pub fn require_task_from_graph(graph_path: &Path, task_id: &str) -> Result<Task> {
+    if !graph_path.exists() {
+        return Err(anyhow::anyhow!(
+            "task graph not found at {}",
+            graph_path.display()
+        ));
+    }
+    let graph = load_task_graph(graph_path)?;
+    match graph.tasks.into_iter().find(|t| t.id == task_id) {
+        Some(node) => Ok(task_node_to_task(node)),
+        None => Err(anyhow::anyhow!(
+            "task {} not found in {}",
+            task_id,
+            graph_path.display()
+        )),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

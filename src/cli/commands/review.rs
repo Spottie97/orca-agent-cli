@@ -5,7 +5,7 @@ use clap::Args;
 
 use crate::config::schema::Config;
 use crate::review::review_task;
-use crate::tasks::{fallback_task, resolve_task_from_graph};
+use crate::tasks::resolve_task_from_graph;
 
 #[derive(Args)]
 pub struct ReviewArgs {
@@ -22,11 +22,11 @@ pub fn run(args: ReviewArgs) -> Result<()> {
     let task = match resolve_task_from_graph(&graph_path, &args.task_id)? {
         Some(t) => t,
         None => {
-            println!(
-                "Warning: task {} not found in task graph. Using fallback.",
-                args.task_id
-            );
-            fallback_task(&args.task_id)
+            return Err(anyhow::anyhow!(
+                "task {} not found in {}",
+                args.task_id,
+                graph_path.display()
+            ));
         }
     };
 
