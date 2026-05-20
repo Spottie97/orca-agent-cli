@@ -185,10 +185,12 @@ mod tests {
             task_type,
             complexity: TaskComplexity::Medium,
             risk: TaskRisk::Low,
+            status: crate::tasks::TaskStatus::Pending,
             requires_repo_search: false,
             estimated_files_touched: 1,
             context_is_exact: true,
             failure_count: 0,
+            acceptance_criteria: Vec::new(),
         }
     }
 

@@ -6,7 +6,7 @@ use clap::Args;
 use crate::config::schema::Config;
 use crate::context::{render_markdown, ContextPacket};
 use crate::router::route;
-use crate::tasks::{Task, TaskComplexity, TaskRisk, TaskType};
+use crate::tasks::{Task, TaskComplexity, TaskRisk, TaskStatus, TaskType};
 use crate::utils::fs::safe_write;
 
 #[derive(Args)]
@@ -47,10 +47,12 @@ pub fn run(args: ContextArgs) -> Result<()> {
         task_type: TaskType::Implementation,
         complexity: TaskComplexity::Medium,
         risk: TaskRisk::Low,
+        status: TaskStatus::Pending,
         requires_repo_search: false,
         estimated_files_touched: 1,
         context_is_exact: true,
         failure_count: 0,
+        acceptance_criteria: Vec::new(),
     };
 
     let decision = route(&task, &config);
