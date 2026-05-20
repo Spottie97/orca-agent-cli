@@ -110,6 +110,8 @@ fn test_orca_init_creates_workspace() {
     assert!(orca.join("input").exists());
     assert!(orca.join("context-packets").exists());
     assert!(orca.join("prompts").exists());
+    assert!(orca.join("prompts/project_memory_agent.md").exists());
+    assert!(orca.join("prompts/review_agent.md").exists());
     assert!(orca.join("results").exists());
     assert!(orca.join("memory").exists());
     assert!(orca.join("graph").exists());

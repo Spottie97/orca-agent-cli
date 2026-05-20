@@ -8,6 +8,7 @@ use crate::config::schema::{
     Config, ContextConfig, ExecutionConfig, MemoryConfig, ModelsConfig, ProjectConfig,
     RoutingConfig,
 };
+use crate::prompts::write_prompts_to_dir;
 use crate::state::State;
 use crate::utils::fs;
 
@@ -70,6 +71,8 @@ pub fn run(args: InitArgs) -> Result<()> {
 
     let state_json = serde_json::to_string_pretty(&state)?;
     fs::safe_write(&orca_dir.join("state.json"), &state_json)?;
+
+    write_prompts_to_dir(&orca_dir.join("prompts"))?;
 
     println!(
         "Initialized Orca project workspace at {}",

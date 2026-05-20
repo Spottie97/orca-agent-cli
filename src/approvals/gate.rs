@@ -40,8 +40,7 @@ pub fn check_approval(
         && decision.requires_approval
     {
         return ApprovalCheck::Block(
-            "Premium Cursor provider requires manual approval. Use --yes to bypass."
-                .to_string(),
+            "Premium Cursor provider requires manual approval. Use --yes to bypass.".to_string(),
         );
     }
 
