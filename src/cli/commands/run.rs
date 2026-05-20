@@ -7,6 +7,7 @@ use serde::Serialize;
 use crate::approvals::{check_approval, ApprovalCheck, ApprovalConfig};
 use crate::config::schema::Config;
 use crate::context::{render_markdown, ContextPacket};
+use crate::memory::obsidian::format_task_completion_entry;
 use crate::memory::MemoryStore;
 use crate::patch;
 use crate::providers::factory::create_provider;
@@ -162,6 +163,7 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
     }
 
     let mut result_path_option: Option<std::path::PathBuf> = None;
+    let mut patch_path_option: Option<std::path::PathBuf> = None;
     let mut exec_output: Option<String> = None;
     let mut exec_status: Option<String> = None;
     let mut exec_duration_ms: Option<u64> = None;
@@ -225,8 +227,13 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
                 }
             }
             if let Some(proposal) = patch::PatchProposal::from_response(&response) {
-                if let Err(e) = patch::save_patch_proposal(orca_dir, &proposal) {
-                    eprintln!("Warning: failed to save patch proposal: {}", e);
+                match patch::save_patch_proposal(orca_dir, &proposal) {
+                    Ok(path) => {
+                        patch_path_option = Some(path);
+                    }
+                    Err(e) => {
+                        eprintln!("Warning: failed to save patch proposal: {}", e);
+                    }
                 }
             }
         }
@@ -303,9 +310,30 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
         state::save(&state, &state_path)?;
 
         let store = MemoryStore::new(orca_dir);
-        let history_entry = format!(
-            "\n## Run {}\n\n- Status: complete\n- Verdict: {}\n\n",
-            args.task_id, review_result.verdict
+        let history_entry = format_task_completion_entry(
+            &args.task_id,
+            &decision.provider.to_string(),
+            &decision.model,
+            "complete",
+            &review_result.verdict.to_string(),
+            exec_output.as_deref(),
+            exec_duration_ms,
+            exec_input_tokens,
+            exec_output_tokens,
+            result_path_option
+                .as_ref()
+                .map(|p| p.to_string_lossy().to_string())
+                .as_deref(),
+            patch_path_option
+                .as_ref()
+                .map(|p| p.to_string_lossy().to_string())
+                .as_deref(),
+            Some(&format!(
+                "{}/reviews/{}.json",
+                orca_dir.display(),
+                args.task_id
+            )),
+            &review_result.recommended_next_step,
         );
         store.append_to_note("tasks", &args.task_id, &history_entry)?;
     }

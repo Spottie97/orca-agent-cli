@@ -472,6 +472,58 @@ fn test_orca_memory_update_dry_run() {
 }
 
 #[test]
+fn test_orca_memory_update_with_execution_result() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    // Execute to create result artifact
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["execute", "TASK-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    // Review to create review artifact
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["review", "TASK-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    // Memory update should use rich format
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["memory", "update", "TASK-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Memory updated for task TASK-001"));
+
+    let task_note = tmp.path().join(".orca/tasks/TASK-001.md");
+    assert!(task_note.exists());
+
+    let contents = std::fs::read_to_string(&task_note).unwrap();
+    assert!(
+        contents.contains("Task Completion"),
+        "memory note should contain 'Task Completion' heading"
+    );
+    assert!(
+        contents.contains("Execution"),
+        "memory note should contain 'Execution' section"
+    );
+    assert!(
+        contents.contains("Review"),
+        "memory note should contain 'Review' section"
+    );
+}
+
+#[test]
 fn test_orca_plan() {
     let tmp = tempfile::tempdir().unwrap();
 

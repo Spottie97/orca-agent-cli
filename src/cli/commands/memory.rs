@@ -4,6 +4,7 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 
 use crate::config::schema::Config;
+use crate::memory::obsidian::format_task_completion_entry;
 use crate::memory::MemoryStore;
 use crate::state::{self, State, TaskState};
 
@@ -90,12 +91,52 @@ pub fn run(cmd: MemoryCmd, dry_run: bool) -> Result<()> {
             // Save state atomically
             state::save(&state, &state_path).with_context(|| "Failed to save state")?;
 
-            // Append to task history in memory store
+            // Try to load execution result for richer memory entry
+            let result_artifact = crate::results::load_result(orca_dir, &task_id).ok();
+            let review_artifact = crate::review::load_review(orca_dir, &task_id).ok();
+
             let store = MemoryStore::new(orca_dir);
-            let history_entry = format!(
-                "\n## Update {}\n\n- Status: complete\n- Task: {}\n\n",
-                now, task_id
-            );
+            let history_entry = if let Some(ref result) = result_artifact {
+                let provider = result.provider.clone();
+                let model = result.model.clone();
+                let status = result.status.clone();
+                let verdict = review_artifact
+                    .as_ref()
+                    .map(|r| r.verdict.clone())
+                    .unwrap_or_else(|| "unknown".to_string());
+                let next_step = review_artifact
+                    .as_ref()
+                    .map(|r| r.recommended_next_step.clone())
+                    .unwrap_or_else(|| "Proceed.".to_string());
+                let output_summary = Some(result.output.as_str());
+                let duration_ms = result.duration_ms;
+                let input_tokens = result.input_tokens;
+                let output_tokens = result.output_tokens;
+                let result_path = format!("{}/results/{}.json", orca_dir.display(), task_id);
+                let patch_path = format!("{}/patches/{}.json", orca_dir.display(), task_id);
+                let review_path = format!("{}/reviews/{}.json", orca_dir.display(), task_id);
+
+                format_task_completion_entry(
+                    &task_id,
+                    &provider,
+                    &model,
+                    &status,
+                    &verdict,
+                    output_summary,
+                    duration_ms,
+                    input_tokens,
+                    output_tokens,
+                    Some(&result_path),
+                    Some(&patch_path),
+                    Some(&review_path),
+                    &next_step,
+                )
+            } else {
+                format!(
+                    "\n## Update {}\n\n- Status: complete\n- Task: {}\n\n",
+                    now, task_id
+                )
+            };
             store.append_to_note("tasks", &task_id, &history_entry)?;
 
             println!("Memory updated for task {}.", task_id);

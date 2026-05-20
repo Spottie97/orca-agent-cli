@@ -63,6 +63,78 @@ files_touched:
     Ok(note)
 }
 
+/// Format a rich task completion entry for the memory store.
+#[allow(clippy::too_many_arguments)]
+pub fn format_task_completion_entry(
+    task_id: &str,
+    provider: &str,
+    model: &str,
+    status: &str,
+    verdict: &str,
+    output_summary: Option<&str>,
+    duration_ms: Option<u64>,
+    input_tokens: Option<u32>,
+    output_tokens: Option<u32>,
+    result_path: Option<&str>,
+    patch_path: Option<&str>,
+    review_path: Option<&str>,
+    next_step: &str,
+) -> String {
+    let mut lines = vec![
+        format!("## Task Completion: {}", task_id),
+        String::new(),
+        "### Execution".to_string(),
+        format!("- **Provider**: {}", provider),
+        format!("- **Model**: {}", model),
+        format!("- **Status**: {}", status),
+    ];
+
+    if let Some(ms) = duration_ms {
+        lines.push(format!("- **Duration**: {} ms", ms));
+    }
+    if let Some(t) = input_tokens {
+        lines.push(format!("- **Input tokens**: {}", t));
+    }
+    if let Some(t) = output_tokens {
+        lines.push(format!("- **Output tokens**: {}", t));
+    }
+
+    lines.push(String::new());
+    lines.push("### Review".to_string());
+    lines.push(format!("- **Verdict**: {}", verdict));
+    lines.push(format!("- **Next step**: {}", next_step));
+
+    if let Some(summary) = output_summary {
+        let truncated = if summary.len() > 500 {
+            format!("{}...", &summary[..500])
+        } else {
+            summary.to_string()
+        };
+        lines.push(String::new());
+        lines.push("### Output Summary".to_string());
+        lines.push(format!("```\n{}\n```", truncated));
+    }
+
+    let mut artifacts = Vec::new();
+    if let Some(p) = result_path {
+        artifacts.push(format!("- **Result**: {}", p));
+    }
+    if let Some(p) = patch_path {
+        artifacts.push(format!("- **Patch**: {}", p));
+    }
+    if let Some(p) = review_path {
+        artifacts.push(format!("- **Review**: {}", p));
+    }
+    if !artifacts.is_empty() {
+        lines.push(String::new());
+        lines.push("### Artifacts".to_string());
+        lines.extend(artifacts);
+    }
+
+    lines.push(String::new());
+    lines.join("\n")
+}
+
 pub fn write_decision_note(
     decision_id: &str,
     title: &str,
