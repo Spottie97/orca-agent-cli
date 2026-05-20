@@ -22,11 +22,7 @@ Stories completed:
 - ORCA-012: Lightweight graph memory model
 - ORCA-013: Context packet schema and renderer
 - ORCA-014: Implement orca context
-
-Current story:
 - ORCA-015: Implement repo scanning and orca scan
-
-Next stories:
 - ORCA-016: Task lifecycle
 - ORCA-017: Dry-run execution
 - ORCA-018: Review schema
@@ -36,8 +32,11 @@ Next stories:
 - ORCA-022: orca plan
 - ORCA-023: orca run --dry-run
 - ORCA-024: orca status
-- ORCA-025: Prompt library
-- ORCA-026: Secret redaction
+- ORCA-025: Prompt library (2ff6f45)
+
+Current story:
 - ORCA-027: Integration tests
+
+Next stories:
 - ORCA-028: Documentation
 - ORCA-029: Final polish
