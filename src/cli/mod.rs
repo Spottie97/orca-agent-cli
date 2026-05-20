@@ -82,7 +82,7 @@ pub fn run() -> Result<()> {
         Commands::Execute(args) => commands::execute::run(args, cli.dry_run, cli.yes),
         Commands::Review(args) => commands::review::run(args),
         Commands::Memory(cmd) => commands::memory::run(cmd),
-        Commands::Run(args) => commands::run::run(args),
+        Commands::Run(args) => commands::run::run(args, cli.dry_run, cli.yes),
         Commands::Status(args) => commands::status::run(args),
     }
 }

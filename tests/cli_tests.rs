@@ -276,3 +276,23 @@ fn test_orca_plan() {
     assert!(contents.contains("TASK-002"));
     assert!(contents.contains("TASK-003"));
 }
+
+#[test]
+fn test_orca_run_dry_run() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["run", "--dry-run", "TASK-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Orca Run: TASK-001"))
+        .stdout(predicate::str::contains("Context packet written to"))
+        .stdout(predicate::str::contains("Execution (dry-run)"))
+        .stdout(predicate::str::contains("Run complete"));
+}
