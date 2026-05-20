@@ -23,6 +23,9 @@ pub struct Cli {
     #[arg(long, global = true, help = "Dry run mode")]
     pub dry_run: bool,
 
+    #[arg(long, global = true, help = "Auto-approve all gates without prompting")]
+    pub yes: bool,
+
     #[arg(long, global = true, help = "Output in JSON format")]
     pub json: bool,
 
@@ -76,7 +79,7 @@ pub fn run() -> Result<()> {
         Commands::Context(args) => commands::context::run(args),
         Commands::Route(args) => commands::route::run(args),
         Commands::Plan(args) => commands::plan::run(args),
-        Commands::Execute(args) => commands::execute::run(args, cli.dry_run),
+        Commands::Execute(args) => commands::execute::run(args, cli.dry_run, cli.yes),
         Commands::Review(args) => commands::review::run(args),
         Commands::Memory(cmd) => commands::memory::run(cmd),
         Commands::Run(args) => commands::run::run(args),

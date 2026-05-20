@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use clap::Args;
 
+use crate::approvals::{check_approval, ApprovalCheck, ApprovalConfig};
 use crate::config::schema::Config;
 use crate::providers::mock::MockProvider;
 use crate::providers::traits::{Provider, ProviderRequest};
@@ -18,7 +19,7 @@ pub struct ExecuteArgs {
     pub provider: Option<String>,
 }
 
-pub fn run(args: ExecuteArgs, dry_run: bool) -> Result<()> {
+pub fn run(args: ExecuteArgs, dry_run: bool, yes: bool) -> Result<()> {
     let config_path = PathBuf::from(".orca").join("config.yaml");
     let config: Config = crate::config::load(&config_path)
         .with_context(|| format!("Failed to load config from {}", config_path.display()))?;
@@ -39,6 +40,20 @@ pub fn run(args: ExecuteArgs, dry_run: bool) -> Result<()> {
     };
 
     let decision = route(&task, &config);
+
+    let approval_config = ApprovalConfig {
+        require_approval_for_premium: config.execution.require_approval_for_premium,
+        require_approval_for_destructive: true,
+        require_approval_for_high_risk: true,
+    };
+
+    match check_approval(&task, &decision, &approval_config, yes) {
+        ApprovalCheck::Block(reason) => {
+            println!("Approval gate blocked: {}", reason);
+            return Ok(());
+        }
+        ApprovalCheck::Pass => {}
+    }
 
     if dry_run {
         println!("=== DRY RUN ===");
