@@ -703,6 +703,28 @@
         "cargo build"
       ],
       "passes": true
+    },
+    {
+      "id": "PHASE2-008",
+      "title": "Prepare Cursor Composer bridge design only",
+      "description": "Create a comprehensive design document for the Cursor Composer bridge. Cursor is a desktop IDE with no public API, so the bridge must use file-based protocols, context packets, and optionally a Cursor extension. No implementation code is written.",
+      "acceptance_criteria": [
+        "Design document exists at docs/cursor-composer-bridge-design.md",
+        "Design covers at least 3 alternative approaches with trade-offs",
+        "Design specifies BridgeTask and BridgeResult JSON schemas",
+        "Design includes execution flow and error handling strategy",
+        "Design includes security considerations (no secrets in bridge files)",
+        "Design includes implementation roadmap with phased approach",
+        "docs/cursor-integration.md references the new design document",
+        "No new Rust code is written (design only)"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": true
     }
   ]
 }

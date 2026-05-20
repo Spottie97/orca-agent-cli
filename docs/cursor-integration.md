@@ -24,6 +24,16 @@ Context packets include:
 
 These are written to `.orca/context-packets/{TASK-ID}.md`.
 
+## Bridge Design
+
+A detailed technical design for the Cursor Composer bridge is available in [Cursor Composer Bridge Design](cursor-composer-bridge-design.md). It covers:
+
+- Layered bridge strategy (context packets → `.cursorrules` → file-based protocol → Cursor extension → MCP)
+- `BridgeTask` and `BridgeResult` JSON schemas
+- Execution flow and error handling
+- Security considerations
+- Implementation roadmap
+
 ## Future directions
 
 - Cursor CLI integration if/when a native CLI becomes available
