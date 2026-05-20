@@ -59,6 +59,9 @@ pub enum Commands {
     #[command(about = "Memory management commands")]
     Memory(commands::memory::MemoryCmd),
 
+    #[command(about = "Patch proposal commands")]
+    Patch(commands::patch::PatchCmd),
+
     #[command(about = "Run the full orchestration loop for a task")]
     Run(commands::run::RunArgs),
 
@@ -82,6 +85,7 @@ pub fn run() -> Result<()> {
         Commands::Execute(args) => commands::execute::run(args, cli.dry_run, cli.yes),
         Commands::Review(args) => commands::review::run(args),
         Commands::Memory(cmd) => commands::memory::run(cmd, cli.dry_run),
+        Commands::Patch(cmd) => commands::patch::run(cmd),
         Commands::Run(args) => commands::run::run(args, cli.dry_run, cli.yes),
         Commands::Status(args) => commands::status::run(args),
         Commands::Splash(args) => commands::splash::run(args),

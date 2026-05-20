@@ -8,6 +8,7 @@ use crate::approvals::{check_approval, ApprovalCheck, ApprovalConfig};
 use crate::config::schema::Config;
 use crate::context::{render_markdown, ContextPacket};
 use crate::memory::MemoryStore;
+use crate::patch;
 use crate::providers::factory::create_provider;
 use crate::providers::mock::MockProvider;
 use crate::providers::traits::{CostEstimate, ExecutionStatus, Provider, ProviderRequest};
@@ -211,6 +212,11 @@ pub fn run(args: RunArgs, dry_run: bool, yes: bool) -> Result<()> {
                 }
                 Err(e) => {
                     eprintln!("Warning: failed to save execution result: {}", e);
+                }
+            }
+            if let Some(proposal) = patch::PatchProposal::from_response(&response) {
+                if let Err(e) = patch::save_patch_proposal(orca_dir, &proposal) {
+                    eprintln!("Warning: failed to save patch proposal: {}", e);
                 }
             }
         }

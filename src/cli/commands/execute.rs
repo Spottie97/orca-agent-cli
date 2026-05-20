@@ -5,6 +5,7 @@ use clap::Args;
 
 use crate::approvals::{check_approval, ApprovalCheck, ApprovalConfig};
 use crate::config::schema::Config;
+use crate::patch;
 use crate::providers::factory::create_provider;
 use crate::providers::traits::{ExecutionStatus, ProviderRequest};
 use crate::results;
@@ -98,6 +99,11 @@ pub fn run(args: ExecuteArgs, dry_run: bool, yes: bool) -> Result<()> {
         if response.status == ExecutionStatus::Success {
             if let Err(e) = results::save_result(&config.project.orca_dir, &response) {
                 eprintln!("Warning: failed to save execution result: {}", e);
+            }
+            if let Some(proposal) = patch::PatchProposal::from_response(&response) {
+                if let Err(e) = patch::save_patch_proposal(&config.project.orca_dir, &proposal) {
+                    eprintln!("Warning: failed to save patch proposal: {}", e);
+                }
             }
         }
         println!("Execution result for {}", args.task_id);

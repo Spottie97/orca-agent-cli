@@ -43,7 +43,7 @@ pub fn run(args: InitArgs, dry_run: bool) -> Result<()> {
             orca_dir.display()
         );
         println!(
-            "  - Create directories: input, context-packets, prompts, results, memory, graph, logs"
+            "  - Create directories: input, context-packets, prompts, results, patches, memory, graph, logs"
         );
         println!("  - Write config.yaml with project name: {}", project_name);
         println!("  - Write state.json with initial state");
@@ -56,6 +56,7 @@ pub fn run(args: InitArgs, dry_run: bool) -> Result<()> {
     fs::ensure_dir(&orca_dir.join("context-packets"))?;
     fs::ensure_dir(&orca_dir.join("prompts"))?;
     fs::ensure_dir(&orca_dir.join("results"))?;
+    fs::ensure_dir(&orca_dir.join("patches"))?;
     fs::ensure_dir(&orca_dir.join("memory"))?;
     fs::ensure_dir(&orca_dir.join("graph"))?;
     fs::ensure_dir(&orca_dir.join("logs"))?;

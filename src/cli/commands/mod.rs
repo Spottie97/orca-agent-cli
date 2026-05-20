@@ -3,6 +3,7 @@ pub mod context;
 pub mod execute;
 pub mod init;
 pub mod memory;
+pub mod patch;
 pub mod plan;
 pub mod review;
 pub mod route;

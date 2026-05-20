@@ -915,6 +915,128 @@ fn test_orca_run_creates_result_file() {
 }
 
 #[test]
+fn test_orca_execute_creates_no_patch_when_no_files_changed() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["execute", "TASK-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let patch_path = tmp.path().join(".orca/patches/TASK-001.json");
+    assert!(
+        !patch_path.exists(),
+        "execute must not create patch artifact when no files changed"
+    );
+}
+
+#[test]
+fn test_orca_patch_list_empty() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["patch", "list"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("No patch proposals found"));
+}
+
+#[test]
+fn test_orca_patch_show_missing() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["patch", "show", "TASK-999"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .failure()
+        .stderr(predicate::str::contains("TASK-999"));
+}
+
+#[test]
+fn test_orca_patch_show_and_list() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    // Manually create a patch proposal
+    let patches_dir = tmp.path().join(".orca/patches");
+    std::fs::create_dir_all(&patches_dir).unwrap();
+    let patch = serde_json::json!({
+        "task_id": "TASK-PATCH",
+        "provider": "mock",
+        "model": "mock-model",
+        "timestamp": "now",
+        "files_changed": [
+            {
+                "path": "src/main.rs",
+                "original": null,
+                "proposed": "new content",
+                "explanation": "fix typo"
+            }
+        ],
+        "summary": "Fix typo in main.rs"
+    });
+    std::fs::write(
+        patches_dir.join("TASK-PATCH.json"),
+        serde_json::to_string_pretty(&patch).unwrap(),
+    )
+    .unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["patch", "show", "TASK-PATCH"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("src/main.rs"))
+        .stdout(predicate::str::contains("fix typo"));
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["patch", "list"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("TASK-PATCH"));
+}
+
+#[test]
+fn test_orca_init_creates_patches_dir() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let patches_dir = tmp.path().join(".orca/patches");
+    assert!(patches_dir.exists(), "init must create patches directory");
+}
+
+#[test]
 fn test_orca_init_json_rejected() {
     let mut cmd = Command::cargo_bin("orca").unwrap();
     cmd.args(["init", "--json"]);

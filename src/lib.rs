@@ -3,6 +3,7 @@ pub mod cli;
 pub mod config;
 pub mod context;
 pub mod memory;
+pub mod patch;
 pub mod prompts;
 pub mod providers;
 pub mod results;
