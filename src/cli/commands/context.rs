@@ -6,7 +6,7 @@ use clap::Args;
 use crate::config::schema::Config;
 use crate::context::{render_markdown, ContextPacket};
 use crate::router::route;
-use crate::tasks::{Task, TaskComplexity, TaskRisk, TaskStatus, TaskType};
+use crate::tasks::{fallback_task, resolve_task_from_graph};
 use crate::utils::fs::safe_write;
 
 #[derive(Args)]
@@ -39,26 +39,22 @@ pub fn run(args: ContextArgs, dry_run: bool) -> Result<()> {
         return Ok(());
     }
 
-    // Build a minimal task for routing
-    let task = Task {
-        id: args.task_id.clone(),
-        title: format!("Task {}", args.task_id),
-        description: "".to_string(),
-        task_type: TaskType::Implementation,
-        complexity: TaskComplexity::Medium,
-        risk: TaskRisk::Low,
-        status: TaskStatus::Pending,
-        requires_repo_search: false,
-        estimated_files_touched: 1,
-        context_is_exact: true,
-        failure_count: 0,
-        acceptance_criteria: Vec::new(),
+    let graph_path = orca_dir.join("task-graph.yaml");
+    let task = match resolve_task_from_graph(&graph_path, &args.task_id)? {
+        Some(t) => t,
+        None => {
+            println!(
+                "Warning: task {} not found in task graph. Using fallback.",
+                args.task_id
+            );
+            fallback_task(&args.task_id)
+        }
     };
 
     let decision = route(&task, &config);
 
     let mut packet = ContextPacket::new(&args.task_id, &task.title);
-    packet.task_type = "implementation".to_string();
+    packet.task_type = format!("{:?}", task.task_type).to_lowercase();
     packet.goal = format!(
         "Execute task {} through provider {}",
         args.task_id, decision.provider

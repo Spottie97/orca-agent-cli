@@ -5,7 +5,7 @@ use clap::Args;
 
 use crate::config::schema::Config;
 use crate::review::review_task;
-use crate::tasks::{Task, TaskComplexity, TaskRisk, TaskStatus, TaskType};
+use crate::tasks::{fallback_task, resolve_task_from_graph};
 
 #[derive(Args)]
 pub struct ReviewArgs {
@@ -15,24 +15,19 @@ pub struct ReviewArgs {
 
 pub fn run(args: ReviewArgs) -> Result<()> {
     let config_path = PathBuf::from(".orca").join("config.yaml");
-    let _config: Config = crate::config::load(&config_path)
+    let config: Config = crate::config::load(&config_path)
         .with_context(|| format!("Failed to load config from {}", config_path.display()))?;
 
-    // In a full implementation, this would load the task from state.
-    // For MVP, we create a minimal task with the given ID.
-    let task = Task {
-        id: args.task_id.clone(),
-        title: format!("Task {}", args.task_id),
-        description: "".to_string(),
-        task_type: TaskType::Implementation,
-        complexity: TaskComplexity::Medium,
-        risk: TaskRisk::Low,
-        status: TaskStatus::Pending,
-        requires_repo_search: false,
-        estimated_files_touched: 1,
-        context_is_exact: true,
-        failure_count: 0,
-        acceptance_criteria: Vec::new(),
+    let graph_path = config.project.orca_dir.join("task-graph.yaml");
+    let task = match resolve_task_from_graph(&graph_path, &args.task_id)? {
+        Some(t) => t,
+        None => {
+            println!(
+                "Warning: task {} not found in task graph. Using fallback.",
+                args.task_id
+            );
+            fallback_task(&args.task_id)
+        }
     };
 
     let result = review_task(&task);

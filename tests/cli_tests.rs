@@ -489,3 +489,94 @@ fn test_orca_status_json() {
         .success()
         .stdout(predicate::str::contains("project_name"));
 }
+
+#[test]
+fn test_orca_route_uses_task_graph_metadata() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    // Generate task graph so TASK-001 exists with planning metadata
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["route", "TASK-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Routing decision"))
+        .stdout(predicate::str::contains("ollama").or(predicate::str::contains("claude")))
+        .stdout(predicate::str::contains("planning").or(predicate::str::contains("Planning")));
+}
+
+#[test]
+fn test_orca_route_task_002_medium_risk() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["route", "TASK-002"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("medium"))
+        .stdout(
+            predicate::str::contains("implementation")
+                .or(predicate::str::contains("Implementation")),
+        );
+}
+
+#[test]
+fn test_orca_route_task_003_test_type() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["plan", "--planner", "manual"]);
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["route", "TASK-003"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("test").or(predicate::str::contains("Test")));
+}
+
+#[test]
+fn test_orca_route_missing_task_warns() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["route", "TASK-999"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Warning"))
+        .stdout(predicate::str::contains("not found"));
+}

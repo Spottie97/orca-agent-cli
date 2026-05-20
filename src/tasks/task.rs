@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -18,6 +20,32 @@ pub enum TaskType {
     Debugging,
 }
 
+impl FromStr for TaskType {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "summary" => Ok(TaskType::Summary),
+            "compression" => Ok(TaskType::Compression),
+            "memory-update" => Ok(TaskType::MemoryUpdate),
+            "memoryupdate" => Ok(TaskType::MemoryUpdate),
+            "docs" => Ok(TaskType::Docs),
+            "architecture" => Ok(TaskType::Architecture),
+            "decomposition" => Ok(TaskType::Decomposition),
+            "risk-analysis" => Ok(TaskType::RiskAnalysis),
+            "riskanalysis" => Ok(TaskType::RiskAnalysis),
+            "planning" => Ok(TaskType::Planning),
+            "implementation" => Ok(TaskType::Implementation),
+            "tests" => Ok(TaskType::Tests),
+            "refactor" => Ok(TaskType::Refactor),
+            "review" => Ok(TaskType::Review),
+            "research" => Ok(TaskType::Research),
+            "debugging" => Ok(TaskType::Debugging),
+            _ => Err(()),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TaskComplexity {
     Low,
@@ -26,11 +54,38 @@ pub enum TaskComplexity {
     Critical,
 }
 
+impl FromStr for TaskComplexity {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "low" => Ok(TaskComplexity::Low),
+            "medium" => Ok(TaskComplexity::Medium),
+            "high" => Ok(TaskComplexity::High),
+            "critical" => Ok(TaskComplexity::Critical),
+            _ => Err(()),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TaskRisk {
     Low,
     Medium,
     High,
+}
+
+impl FromStr for TaskRisk {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "low" => Ok(TaskRisk::Low),
+            "medium" => Ok(TaskRisk::Medium),
+            "high" => Ok(TaskRisk::High),
+            _ => Err(()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -42,6 +97,23 @@ pub enum TaskStatus {
     Failed,
     Blocked,
     Cancelled,
+}
+
+impl FromStr for TaskStatus {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "pending" => Ok(TaskStatus::Pending),
+            "in-progress" => Ok(TaskStatus::InProgress),
+            "inprogress" => Ok(TaskStatus::InProgress),
+            "complete" => Ok(TaskStatus::Complete),
+            "failed" => Ok(TaskStatus::Failed),
+            "blocked" => Ok(TaskStatus::Blocked),
+            "cancelled" => Ok(TaskStatus::Cancelled),
+            _ => Err(()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

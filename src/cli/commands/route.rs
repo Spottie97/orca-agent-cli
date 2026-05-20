@@ -1,11 +1,12 @@
 use std::path::PathBuf;
+use std::str::FromStr;
 
 use anyhow::{Context, Result};
 use clap::Args;
 
 use crate::config::schema::Config;
 use crate::router::route;
-use crate::tasks::{Task, TaskComplexity, TaskRisk, TaskStatus, TaskType};
+use crate::tasks::{fallback_task, resolve_task_from_graph, TaskType};
 
 #[derive(Args)]
 pub struct RouteArgs {
@@ -21,23 +22,25 @@ pub fn run(args: RouteArgs) -> Result<()> {
     let config: Config = crate::config::load(&config_path)
         .with_context(|| format!("Failed to load config from {}", config_path.display()))?;
 
-    // In a full implementation, this would load the task from the task graph.
-    // For now, we create a minimal task with the given ID.
-    let task_type = parse_task_type(args.task_type.as_deref());
-    let task = Task {
-        id: args.task_id.clone(),
-        title: format!("Task {}", args.task_id),
-        description: "".to_string(),
-        task_type,
-        complexity: TaskComplexity::Medium,
-        risk: TaskRisk::Low,
-        status: TaskStatus::Pending,
-        requires_repo_search: false,
-        estimated_files_touched: 1,
-        context_is_exact: true,
-        failure_count: 0,
-        acceptance_criteria: Vec::new(),
+    let graph_path = config.project.orca_dir.join("task-graph.yaml");
+
+    let mut task = match resolve_task_from_graph(&graph_path, &args.task_id)? {
+        Some(t) => t,
+        None => {
+            println!(
+                "Warning: task {} not found in task graph. Using fallback.",
+                args.task_id
+            );
+            fallback_task(&args.task_id)
+        }
     };
+
+    // Allow CLI override of task type
+    if let Some(override_type) = args.task_type.as_deref() {
+        if let Ok(tt) = TaskType::from_str(override_type) {
+            task.task_type = tt;
+        }
+    }
 
     let decision = route(&task, &config);
 
@@ -65,24 +68,4 @@ pub fn run(args: RouteArgs) -> Result<()> {
     }
 
     Ok(())
-}
-
-fn parse_task_type(s: Option<&str>) -> TaskType {
-    match s {
-        Some("summary") => TaskType::Summary,
-        Some("compression") => TaskType::Compression,
-        Some("memory-update") => TaskType::MemoryUpdate,
-        Some("docs") => TaskType::Docs,
-        Some("architecture") => TaskType::Architecture,
-        Some("decomposition") => TaskType::Decomposition,
-        Some("risk-analysis") => TaskType::RiskAnalysis,
-        Some("planning") => TaskType::Planning,
-        Some("implementation") => TaskType::Implementation,
-        Some("tests") => TaskType::Tests,
-        Some("refactor") => TaskType::Refactor,
-        Some("review") => TaskType::Review,
-        Some("debugging") => TaskType::Debugging,
-        Some("research") => TaskType::Research,
-        _ => TaskType::Planning,
-    }
 }
