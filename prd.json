@@ -748,6 +748,30 @@
         "cargo build"
       ],
       "passes": true
+    },
+    {
+      "id": "HOTFIX-006",
+      "title": "Fix acceptance criteria propagation and make review fail closed",
+      "description": "Task graph YAML acceptance_criteria fields were not parsed into TaskNode, so they were silently dropped. run.rs and context.rs hardcoded 'Task completes successfully' instead of propagating real criteria. review.rs failed open when no execution result existed. Fix propagation through the entire pipeline and make review reject when result is missing, unparseable, or contains refusal patterns. Add exact-match criterion detection.",
+      "acceptance_criteria": [
+        "TaskNode parses acceptance_criteria from YAML with serde(default)",
+        "task_node_to_task propagates acceptance_criteria into Task",
+        "run.rs uses task.acceptance_criteria instead of hardcoded value",
+        "context.rs uses task.acceptance_criteria instead of hardcoded value",
+        "execute.rs ContextPacket reconstruction includes acceptance_criteria",
+        "review fails closed when execution_output and execution_status are both None",
+        "review rejects on refusal patterns and unmet exact-match criteria",
+        "Exact-match criteria like 'Output must be exactly ORCA_CLOUD_OK.' are checked robustly",
+        "Unit tests cover fail-closed, exact-match accept, and exact-match reject",
+        "Integration tests cover propagation to context packet and review behavior"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": true
     }
   ]
 }
