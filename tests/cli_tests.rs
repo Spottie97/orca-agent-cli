@@ -134,3 +134,20 @@ fn test_orca_config_validate() {
         .success()
         .stdout(predicate::str::contains("Configuration is valid"));
 }
+
+#[test]
+fn test_orca_route() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["route", "TASK-001"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Routing decision"));
+}
