@@ -83,6 +83,12 @@ pub struct ProviderResponse {
     pub files_changed: Vec<String>,
     #[serde(default)]
     pub suggested_memory_update: Option<String>,
+    #[serde(default)]
+    pub duration_ms: Option<u64>,
+    #[serde(default)]
+    pub input_tokens: Option<u32>,
+    #[serde(default)]
+    pub output_tokens: Option<u32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

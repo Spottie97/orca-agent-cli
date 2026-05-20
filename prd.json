@@ -680,6 +680,29 @@
         "cargo build"
       ],
       "passes": true
+    },
+    {
+      "id": "PHASE2-002",
+      "title": "Add provider execution safety controls",
+      "description": "Add timeout handling, retry policy with backoff for transient failures, max request size guard (max_input_tokens), max response size guard (max_response_bytes), and provider call metadata capture (duration_ms, input_tokens, output_tokens) in ProviderResponse. Update all provider skeletons to support new response fields. Add wiremock tests for retries, oversized input rejection, oversized response rejection, and metadata presence.",
+      "acceptance_criteria": [
+        "OpenAiModelConfig includes max_retries and max_response_bytes",
+        "OpenAiProvider retries transient errors (5xx, timeout, rate limit)",
+        "Auth errors (401) are not retried",
+        "Oversized input is rejected before HTTP call",
+        "Oversized response is rejected before parsing",
+        "ProviderResponse includes duration_ms, input_tokens, output_tokens",
+        "All provider skeletons compile with new response fields",
+        "Config backward compatibility preserved",
+        "Existing MVP tests pass"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": true
     }
   ]
 }

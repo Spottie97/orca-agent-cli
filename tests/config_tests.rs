@@ -78,7 +78,8 @@ models:
     max_output_tokens: 2048
 "#;
 
-    let parsed: Config = serde_yaml::from_str(yaml).expect("config with openai section should parse");
+    let parsed: Config =
+        serde_yaml::from_str(yaml).expect("config with openai section should parse");
     assert_eq!(parsed.models.openai.base_url, "http://localhost:8080");
     assert_eq!(parsed.models.openai.timeout_seconds, 60);
     assert_eq!(parsed.models.openai.max_input_tokens, 4096);
@@ -109,6 +110,12 @@ fn test_config_roundtrip_preserves_openai() {
 
     let loaded = orca_agent_cli::config::load(&path).unwrap();
     assert_eq!(loaded.models.openai.base_url, config.models.openai.base_url);
-    assert_eq!(loaded.models.openai.default_model, config.models.openai.default_model);
-    assert_eq!(loaded.models.openai.timeout_seconds, config.models.openai.timeout_seconds);
+    assert_eq!(
+        loaded.models.openai.default_model,
+        config.models.openai.default_model
+    );
+    assert_eq!(
+        loaded.models.openai.timeout_seconds,
+        config.models.openai.timeout_seconds
+    );
 }

@@ -43,11 +43,15 @@ Stories completed:
 - HOTFIX-003: Reject missing explicit task IDs instead of fallback tasks (f1b385f)
 - HOTFIX-004: Fix --json output flag (962604f)
 
-Current story:
+Stories completed:
+- ORCA-001 through ORCA-030 (MVP)
+- HOTFIX-001 through HOTFIX-004
 - PHASE2-001: Add real OpenAI-compatible provider execution
 
-Next stories:
+Current story:
 - PHASE2-002: Add provider execution safety controls
+
+Next stories:
 - PHASE2-003: Persist execution results safely
 - PHASE2-004: Add patch proposal artifact support
 - PHASE2-005: Improve review integration for real results

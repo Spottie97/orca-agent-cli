@@ -58,6 +58,9 @@ impl Provider for AnthropicProvider {
             status: ExecutionStatus::Success,
             files_changed: Vec::new(),
             suggested_memory_update: None,
+            duration_ms: None,
+            input_tokens: None,
+            output_tokens: None,
         })
     }
 }

@@ -138,6 +138,10 @@ pub struct OpenAiModelConfig {
     pub max_input_tokens: u32,
     #[serde(default = "default_openai_max_output_tokens")]
     pub max_output_tokens: u32,
+    #[serde(default = "default_openai_max_retries")]
+    pub max_retries: u32,
+    #[serde(default = "default_openai_max_response_bytes")]
+    pub max_response_bytes: u64,
 }
 
 impl Default for OpenAiModelConfig {
@@ -151,6 +155,8 @@ impl Default for OpenAiModelConfig {
             timeout_seconds: default_openai_timeout(),
             max_input_tokens: default_openai_max_input_tokens(),
             max_output_tokens: default_openai_max_output_tokens(),
+            max_retries: default_openai_max_retries(),
+            max_response_bytes: default_openai_max_response_bytes(),
         }
     }
 }
@@ -352,6 +358,14 @@ fn default_openai_max_input_tokens() -> u32 {
 
 fn default_openai_max_output_tokens() -> u32 {
     2048
+}
+
+fn default_openai_max_retries() -> u32 {
+    3
+}
+
+fn default_openai_max_response_bytes() -> u64 {
+    2 * 1024 * 1024 // 2 MiB
 }
 
 fn default_cursor_composer_model() -> String {

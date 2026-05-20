@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use reqwest::Client;
@@ -43,6 +43,8 @@ pub struct OpenAiProvider {
     timeout: Duration,
     max_input_tokens: u32,
     max_output_tokens: u32,
+    max_retries: u32,
+    max_response_bytes: u64,
     client: Client,
 }
 
@@ -56,6 +58,8 @@ impl OpenAiProvider {
             timeout: Duration::from_secs(120),
             max_input_tokens: 4096,
             max_output_tokens: 2048,
+            max_retries: 3,
+            max_response_bytes: 2 * 1024 * 1024,
             client: Client::new(),
         }
     }
@@ -75,6 +79,8 @@ impl OpenAiProvider {
             timeout: Duration::from_secs(config.timeout_seconds),
             max_input_tokens: config.max_input_tokens,
             max_output_tokens: config.max_output_tokens,
+            max_retries: config.max_retries,
+            max_response_bytes: config.max_response_bytes,
             client,
         }
     }
@@ -83,34 +89,27 @@ impl OpenAiProvider {
         // Very rough approximation: 1 token ~ 4 characters for English text
         ((text.len() as f64) / 4.0).ceil() as u32
     }
-}
 
-#[async_trait]
-impl Provider for OpenAiProvider {
-    fn name(&self) -> &str {
-        &self.name
+    fn is_transient_error(err: &ProviderError) -> bool {
+        match err {
+            ProviderError::ApiError(msg) => {
+                msg.contains("timed out") || msg.contains("connection") || msg.contains("HTTP 5")
+            }
+            ProviderError::RateLimited => true,
+            _ => false,
+        }
     }
 
-    fn kind(&self) -> ProviderKind {
-        ProviderKind::OpenAi
-    }
-
-    fn capabilities(&self) -> &[ProviderCapability] {
-        &[
-            ProviderCapability::Chat,
-            ProviderCapability::Completion,
-            ProviderCapability::ToolUse,
-            ProviderCapability::MultiFileEdit,
-        ]
-    }
-
-    async fn execute(&self, request: ProviderRequest) -> Result<ProviderResponse, ProviderError> {
+    async fn execute_once(
+        &self,
+        request: &ProviderRequest,
+    ) -> Result<ProviderResponse, ProviderError> {
         let model = request
             .model_id
             .clone()
             .unwrap_or_else(|| self.default_model.clone());
-        let prompt = request.prompt;
-        let context = request.context.unwrap_or_default();
+        let prompt = request.prompt.clone();
+        let context = request.context.clone().unwrap_or_default();
 
         let combined_input = format!("{}\n\n{}", context, prompt);
         let input_tokens = Self::approximate_token_count(&combined_input);
@@ -164,6 +163,17 @@ impl Provider for OpenAiProvider {
         })?;
 
         let status = response.status();
+
+        // Check response size before reading body
+        if let Some(content_length) = response.content_length() {
+            if content_length > self.max_response_bytes {
+                return Err(ProviderError::ApiError(format!(
+                    "Response size {} bytes exceeds max_response_bytes limit {}",
+                    content_length, self.max_response_bytes
+                )));
+            }
+        }
+
         if !status.is_success() {
             let text = response
                 .text()
@@ -195,19 +205,73 @@ impl Provider for OpenAiProvider {
             .map(|c| c.message.content)
             .unwrap_or_default();
 
-        let _output_tokens = Self::approximate_token_count(&output);
+        let output_tokens = Self::approximate_token_count(&output);
 
         Ok(ProviderResponse {
-            task_id: request.task_id,
+            task_id: request.task_id.clone(),
             provider: self.kind(),
             model_id: request
                 .model_id
+                .clone()
                 .unwrap_or_else(|| self.default_model.clone()),
             output,
             status: ExecutionStatus::Success,
             files_changed: Vec::new(),
             suggested_memory_update: None,
+            duration_ms: None,
+            input_tokens: Some(input_tokens),
+            output_tokens: Some(output_tokens),
         })
+    }
+}
+
+#[async_trait]
+impl Provider for OpenAiProvider {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn kind(&self) -> ProviderKind {
+        ProviderKind::OpenAi
+    }
+
+    fn capabilities(&self) -> &[ProviderCapability] {
+        &[
+            ProviderCapability::Chat,
+            ProviderCapability::Completion,
+            ProviderCapability::ToolUse,
+            ProviderCapability::MultiFileEdit,
+        ]
+    }
+
+    async fn execute(&self, request: ProviderRequest) -> Result<ProviderResponse, ProviderError> {
+        let start = Instant::now();
+
+        for attempt in 0..=self.max_retries {
+            match self.execute_once(&request).await {
+                Ok(mut response) => {
+                    let duration_ms = start.elapsed().as_millis() as u64;
+                    response.duration_ms = Some(duration_ms);
+                    return Ok(response);
+                }
+                Err(err) if attempt < self.max_retries && Self::is_transient_error(&err) => {
+                    let backoff = Duration::from_millis(200 * (attempt as u64 + 1));
+                    tokio::time::sleep(backoff).await;
+                }
+                Err(err) => {
+                    let duration_ms = start.elapsed().as_millis() as u64;
+                    return Err(ProviderError::ApiError(format!(
+                        "{} (after {} attempts, {} ms)",
+                        err,
+                        attempt + 1,
+                        duration_ms
+                    )));
+                }
+            }
+        }
+
+        // Should be unreachable, but satisfies compiler
+        Err(ProviderError::ApiError("Max retries exceeded".to_string()))
     }
 
     fn estimate_cost(&self, request: &ProviderRequest) -> CostEstimate {
@@ -280,6 +344,8 @@ mod tests {
             timeout: Duration::from_secs(5),
             max_input_tokens: 4096,
             max_output_tokens: 2048,
+            max_retries: 0,
+            max_response_bytes: 2 * 1024 * 1024,
             client: Client::new(),
         };
 
@@ -294,6 +360,9 @@ mod tests {
         let response = provider.execute(request).await.unwrap();
         assert_eq!(response.output, "Hello from mock server");
         assert_eq!(response.status, ExecutionStatus::Success);
+        assert!(response.duration_ms.is_some());
+        assert!(response.input_tokens.is_some());
+        assert!(response.output_tokens.is_some());
     }
 
     #[tokio::test]
@@ -315,6 +384,8 @@ mod tests {
             timeout: Duration::from_secs(5),
             max_input_tokens: 4096,
             max_output_tokens: 2048,
+            max_retries: 0,
+            max_response_bytes: 2 * 1024 * 1024,
             client: Client::new(),
         };
 
@@ -330,6 +401,7 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(err.to_string().contains("HTTP 500"));
+        assert!(err.to_string().contains("1 attempts"));
         // Secrets should be redacted from error messages
         assert!(!err.to_string().contains("sk-test"));
     }
@@ -353,6 +425,8 @@ mod tests {
             timeout: Duration::from_secs(5),
             max_input_tokens: 4096,
             max_output_tokens: 2048,
+            max_retries: 2,
+            max_response_bytes: 2 * 1024 * 1024,
             client: Client::new(),
         };
 
@@ -367,7 +441,65 @@ mod tests {
         let result = provider.execute(request).await;
         assert!(result.is_err());
         let err = result.unwrap_err();
+        // Auth errors are not retried
         assert!(err.to_string().contains("Authentication failed"));
+        assert!(err.to_string().contains("1 attempts"));
+    }
+
+    #[tokio::test]
+    async fn test_openai_provider_retries_transient_errors() {
+        let server = MockServer::start().await;
+
+        // First two requests fail with 503, third succeeds
+        Mock::given(method("POST"))
+            .and(path("/v1/chat/completions"))
+            .respond_with(ResponseTemplate::new(503).set_body_string("Service Unavailable"))
+            .up_to_n_times(2)
+            .mount(&server)
+            .await;
+
+        let response_body = serde_json::json!({
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": "Success after retries"
+                    }
+                }
+            ]
+        });
+
+        Mock::given(method("POST"))
+            .and(path("/v1/chat/completions"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response_body))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let provider = OpenAiProvider {
+            name: "openai".to_string(),
+            api_key: String::new(),
+            base_url: server.uri(),
+            default_model: "test-model".to_string(),
+            timeout: Duration::from_secs(5),
+            max_input_tokens: 4096,
+            max_output_tokens: 2048,
+            max_retries: 3,
+            max_response_bytes: 2 * 1024 * 1024,
+            client: Client::new(),
+        };
+
+        let request = ProviderRequest {
+            task_id: "TASK-001".to_string(),
+            prompt: "Hello".to_string(),
+            model_id: None,
+            context: None,
+            max_tokens: None,
+        };
+
+        let response = provider.execute(request).await.unwrap();
+        assert_eq!(response.output, "Success after retries");
+        assert_eq!(response.status, ExecutionStatus::Success);
     }
 
     #[tokio::test]
@@ -389,6 +521,8 @@ mod tests {
             timeout: Duration::from_millis(100),
             max_input_tokens: 4096,
             max_output_tokens: 2048,
+            max_retries: 0,
+            max_response_bytes: 2 * 1024 * 1024,
             client: Client::builder()
                 .timeout(Duration::from_millis(100))
                 .build()
@@ -409,6 +543,77 @@ mod tests {
         assert!(err.to_string().contains("timed out"));
     }
 
+    #[tokio::test]
+    async fn test_openai_provider_rejects_oversized_response() {
+        let server = MockServer::start().await;
+
+        // Return a real response body larger than max_response_bytes
+        let large_body = "x".repeat(2048);
+        Mock::given(method("POST"))
+            .and(path("/v1/chat/completions"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(large_body))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let provider = OpenAiProvider {
+            name: "openai".to_string(),
+            api_key: String::new(),
+            base_url: server.uri(),
+            default_model: "test-model".to_string(),
+            timeout: Duration::from_secs(5),
+            max_input_tokens: 4096,
+            max_output_tokens: 2048,
+            max_retries: 0,
+            max_response_bytes: 1024, // 1 KiB limit
+            client: Client::new(),
+        };
+
+        let request = ProviderRequest {
+            task_id: "TASK-001".to_string(),
+            prompt: "Hello".to_string(),
+            model_id: None,
+            context: None,
+            max_tokens: None,
+        };
+
+        let result = provider.execute(request).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("exceeds max_response_bytes"));
+    }
+
+    #[tokio::test]
+    async fn test_openai_provider_rejects_oversized_input() {
+        let server = MockServer::start().await;
+
+        let provider = OpenAiProvider {
+            name: "openai".to_string(),
+            api_key: String::new(),
+            base_url: server.uri(),
+            default_model: "test-model".to_string(),
+            timeout: Duration::from_secs(5),
+            max_input_tokens: 1, // Very small limit
+            max_output_tokens: 2048,
+            max_retries: 0,
+            max_response_bytes: 2 * 1024 * 1024,
+            client: Client::new(),
+        };
+
+        let request = ProviderRequest {
+            task_id: "TASK-001".to_string(),
+            prompt: "This prompt is definitely longer than one token.".to_string(),
+            model_id: None,
+            context: None,
+            max_tokens: None,
+        };
+
+        let result = provider.execute(request).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("max_input_tokens"));
+    }
+
     #[test]
     fn test_openai_estimate_cost() {
         let provider = OpenAiProvider::new("test-key", "gpt-5");
@@ -426,7 +631,6 @@ mod tests {
 
     #[test]
     fn test_openai_from_config_reads_env_var() {
-        // This test documents the behavior; in CI the env var may not be set.
         let cfg = OpenAiModelConfig {
             enabled: true,
             base_url: "http://localhost:8080".to_string(),
@@ -436,11 +640,15 @@ mod tests {
             timeout_seconds: 30,
             max_input_tokens: 2048,
             max_output_tokens: 1024,
+            max_retries: 5,
+            max_response_bytes: 1024 * 1024,
         };
         let provider = OpenAiProvider::from_config(&cfg);
         assert_eq!(provider.api_key, "");
         assert_eq!(provider.base_url, "http://localhost:8080");
         assert_eq!(provider.default_model, "llama3");
         assert_eq!(provider.timeout, Duration::from_secs(30));
+        assert_eq!(provider.max_retries, 5);
+        assert_eq!(provider.max_response_bytes, 1024 * 1024);
     }
 }
