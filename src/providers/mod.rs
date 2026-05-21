@@ -1,4 +1,5 @@
 pub mod anthropic;
+pub mod bridge;
 pub mod command;
 pub mod cursor;
 pub mod factory;

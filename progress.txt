@@ -82,3 +82,16 @@ Next stories:
 - PHASE3-008: CLI diagnostics / provider availability check
 - PHASE3-009: Result/review integration polish
 - PHASE3-010: Documentation
+- PHASE3-002: Bridge config schema (1cea929)
+
+Current story:
+- PHASE3-003: Generic bridge provider
+
+Next stories:
+- PHASE3-004: Claude Code bridge provider + routing
+- PHASE3-005: Codex bridge provider + routing
+- PHASE3-006: Cursor Composer bridge provider + routing
+- PHASE3-007: Approval gates for bridge providers
+- PHASE3-008: CLI diagnostics / provider availability check
+- PHASE3-009: Result/review integration polish
+- PHASE3-010: Documentation
