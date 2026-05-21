@@ -177,9 +177,15 @@ mod tests {
     async fn test_subprocess_redacts_secrets() {
         let cmd = if cfg!(windows) { "cmd" } else { "sh" };
         let args = if cfg!(windows) {
-            vec!["/C".to_string(), "echo secret is sk-abc123xyz456".to_string()]
+            vec![
+                "/C".to_string(),
+                "echo secret is sk-abc123xyz456".to_string(),
+            ]
         } else {
-            vec!["-c".to_string(), "echo secret is sk-abc123xyz456".to_string()]
+            vec![
+                "-c".to_string(),
+                "echo secret is sk-abc123xyz456".to_string(),
+            ]
         };
         let result = run_subprocess(cmd, &args, None, None, &HashMap::new(), 30, 100_000)
             .await

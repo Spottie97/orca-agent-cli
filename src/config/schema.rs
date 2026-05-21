@@ -66,6 +66,8 @@ pub struct ModelsConfig {
     pub codex: CodexModelConfig,
     #[serde(default)]
     pub cursor: CursorModelConfig,
+    #[serde(default)]
+    pub claude_code: crate::bridge::config::ExternalBridgeModelConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -175,6 +177,23 @@ pub struct CodexModelConfig {
     pub default_model: String,
     #[serde(default = "default_codex_role")]
     pub role: String,
+    // Bridge fields (Phase 3)
+    #[serde(default)]
+    pub command: Option<String>,
+    #[serde(default)]
+    pub args: Vec<String>,
+    #[serde(default = "default_stdin_true")]
+    pub stdin: bool,
+    #[serde(default = "default_timeout_600")]
+    pub timeout_seconds: u64,
+    #[serde(default = "default_approval_true")]
+    pub requires_approval: bool,
+    pub model: Option<String>,
+    pub working_directory: Option<String>,
+    #[serde(default)]
+    pub env: std::collections::HashMap<String, String>,
+    #[serde(default = "default_max_output_100000")]
+    pub max_output_bytes: usize,
 }
 
 impl Default for CodexModelConfig {
@@ -184,6 +203,15 @@ impl Default for CodexModelConfig {
             provider: default_codex_provider(),
             default_model: default_codex_model(),
             role: default_codex_role(),
+            command: None,
+            args: Vec::new(),
+            stdin: default_stdin_true(),
+            timeout_seconds: default_timeout_600(),
+            requires_approval: default_approval_true(),
+            model: None,
+            working_directory: None,
+            env: std::collections::HashMap::new(),
+            max_output_bytes: default_max_output_100000(),
         }
     }
 }
@@ -203,6 +231,23 @@ pub struct CursorModelConfig {
     pub default_runtime: String,
     #[serde(default = "default_false")]
     pub cloud_auto_create_pr: bool,
+    // Bridge fields (Phase 3)
+    #[serde(default)]
+    pub command: Option<String>,
+    #[serde(default)]
+    pub args: Vec<String>,
+    #[serde(default = "default_stdin_true")]
+    pub stdin: bool,
+    #[serde(default = "default_timeout_900")]
+    pub timeout_seconds: u64,
+    #[serde(default = "default_approval_true")]
+    pub requires_approval: bool,
+    pub model: Option<String>,
+    pub working_directory: Option<String>,
+    #[serde(default)]
+    pub env: std::collections::HashMap<String, String>,
+    #[serde(default = "default_max_output_100000")]
+    pub max_output_bytes: usize,
 }
 
 impl Default for CursorModelConfig {
@@ -214,6 +259,15 @@ impl Default for CursorModelConfig {
             provider: default_cursor_provider(),
             default_runtime: default_cursor_runtime(),
             cloud_auto_create_pr: false,
+            command: None,
+            args: Vec::new(),
+            stdin: default_stdin_true(),
+            timeout_seconds: default_timeout_900(),
+            requires_approval: default_approval_true(),
+            model: None,
+            working_directory: None,
+            env: std::collections::HashMap::new(),
+            max_output_bytes: default_max_output_100000(),
         }
     }
 }
@@ -417,4 +471,24 @@ fn default_max_tokens() -> u32 {
 
 fn default_hard_max_tokens() -> u32 {
     8000
+}
+
+fn default_stdin_true() -> bool {
+    true
+}
+
+fn default_timeout_600() -> u64 {
+    600
+}
+
+fn default_timeout_900() -> u64 {
+    900
+}
+
+fn default_approval_true() -> bool {
+    true
+}
+
+fn default_max_output_100000() -> usize {
+    100_000
 }

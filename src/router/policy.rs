@@ -43,6 +43,8 @@ fn provider_enabled(kind: ProviderKind, models: &ModelsConfig) -> bool {
         ProviderKind::Anthropic => models.claude.enabled,
         ProviderKind::OpenAi => models.openai.enabled,
         ProviderKind::Cursor => models.cursor.enabled,
+        ProviderKind::ClaudeCode => models.claude_code.enabled,
+        ProviderKind::Codex => models.codex.enabled,
         _ => true,
     }
 }
@@ -53,6 +55,8 @@ fn provider_from_name(name: &str) -> ProviderKind {
         "claude" | "anthropic" => ProviderKind::Anthropic,
         "codex" | "openai" => ProviderKind::OpenAi,
         "cursor" | "cursor_composer" => ProviderKind::Cursor,
+        "claude_code" => ProviderKind::ClaudeCode,
+        "codex_bridge" => ProviderKind::Codex,
         _ => ProviderKind::Manual,
     }
 }
@@ -63,6 +67,16 @@ fn model_for_provider(kind: ProviderKind, models: &ModelsConfig) -> String {
         ProviderKind::Anthropic => models.claude.default_model.clone(),
         ProviderKind::OpenAi => models.openai.default_model.clone(),
         ProviderKind::Cursor => models.cursor.composer_model_id.clone(),
+        ProviderKind::ClaudeCode => models
+            .claude_code
+            .model
+            .clone()
+            .unwrap_or_else(|| "claude-code".to_string()),
+        ProviderKind::Codex => models
+            .codex
+            .model
+            .clone()
+            .unwrap_or_else(|| models.codex.default_model.clone()),
         ProviderKind::Manual => "manual".to_string(),
         _ => "mock".to_string(),
     }

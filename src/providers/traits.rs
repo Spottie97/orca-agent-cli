@@ -9,6 +9,8 @@ pub enum ProviderKind {
     Anthropic,
     OpenAi,
     Cursor,
+    ClaudeCode,
+    Codex,
     Command,
     Manual,
 }
@@ -21,6 +23,8 @@ impl std::fmt::Display for ProviderKind {
             ProviderKind::Anthropic => write!(f, "anthropic"),
             ProviderKind::OpenAi => write!(f, "openai"),
             ProviderKind::Cursor => write!(f, "cursor"),
+            ProviderKind::ClaudeCode => write!(f, "claude_code"),
+            ProviderKind::Codex => write!(f, "codex"),
             ProviderKind::Command => write!(f, "command"),
             ProviderKind::Manual => write!(f, "manual"),
         }
