@@ -35,13 +35,22 @@ pub fn check_approval(
         return ApprovalCheck::Pass;
     }
 
-    if config.require_approval_for_premium
-        && decision.provider == ProviderKind::Cursor
-        && decision.requires_approval
-    {
-        return ApprovalCheck::Block(
-            "Premium Cursor provider requires manual approval. Use --yes to bypass.".to_string(),
-        );
+    if config.require_approval_for_premium && decision.requires_approval {
+        match decision.provider {
+            ProviderKind::Cursor => {
+                return ApprovalCheck::Block(
+                    "Premium Cursor provider requires manual approval. Use --yes to bypass."
+                        .to_string(),
+                );
+            }
+            ProviderKind::ClaudeCode | ProviderKind::Codex => {
+                return ApprovalCheck::Block(format!(
+                    "{} bridge provider requires manual approval. Use --yes to bypass.",
+                    decision.provider
+                ));
+            }
+            _ => {}
+        }
     }
 
     if config.require_approval_for_high_risk
@@ -155,6 +164,59 @@ mod tests {
         let decision = standard_decision();
         let result = check_approval(&task, &decision, &test_config(), false);
         assert!(matches!(result, ApprovalCheck::Block(ref msg) if msg.contains("High-risk")));
+    }
+
+    #[test]
+    fn test_claude_code_bridge_blocked() {
+        let task = test_task(TaskType::Planning);
+        let decision = RoutingDecision {
+            provider: ProviderKind::ClaudeCode,
+            model: "claude-code".to_string(),
+            reason: "Bridge".to_string(),
+            requires_approval: true,
+            risk: "high".to_string(),
+            estimated_cost_class: "premium".to_string(),
+            fallback_provider: ProviderKind::Anthropic,
+            notes: Vec::new(),
+        };
+        let result = check_approval(&task, &decision, &test_config(), false);
+        assert!(
+            matches!(result, ApprovalCheck::Block(ref msg) if msg.contains("claude_code bridge"))
+        );
+    }
+
+    #[test]
+    fn test_codex_bridge_blocked() {
+        let task = test_task(TaskType::Implementation);
+        let decision = RoutingDecision {
+            provider: ProviderKind::Codex,
+            model: "codex".to_string(),
+            reason: "Bridge".to_string(),
+            requires_approval: true,
+            risk: "medium".to_string(),
+            estimated_cost_class: "standard".to_string(),
+            fallback_provider: ProviderKind::OpenAi,
+            notes: Vec::new(),
+        };
+        let result = check_approval(&task, &decision, &test_config(), false);
+        assert!(matches!(result, ApprovalCheck::Block(ref msg) if msg.contains("codex bridge")));
+    }
+
+    #[test]
+    fn test_bridge_bypassed_with_yes() {
+        let task = test_task(TaskType::Planning);
+        let decision = RoutingDecision {
+            provider: ProviderKind::ClaudeCode,
+            model: "claude-code".to_string(),
+            reason: "Bridge".to_string(),
+            requires_approval: true,
+            risk: "high".to_string(),
+            estimated_cost_class: "premium".to_string(),
+            fallback_provider: ProviderKind::Anthropic,
+            notes: Vec::new(),
+        };
+        let result = check_approval(&task, &decision, &test_config(), true);
+        assert!(matches!(result, ApprovalCheck::Pass));
     }
 
     #[test]
