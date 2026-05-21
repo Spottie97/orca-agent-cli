@@ -68,6 +68,9 @@ pub enum Commands {
     #[command(about = "Show project status")]
     Status(commands::status::StatusArgs),
 
+    #[command(about = "Show bridge provider diagnostics")]
+    Providers(commands::providers::ProvidersArgs),
+
     #[command(about = "Show the Orca splash screen")]
     Splash(commands::splash::SplashArgs),
 }
@@ -88,6 +91,7 @@ pub fn run() -> Result<()> {
         Commands::Patch(cmd) => commands::patch::run(cmd),
         Commands::Run(args) => commands::run::run(args, cli.dry_run, cli.yes),
         Commands::Status(args) => commands::status::run(args),
+        Commands::Providers(args) => commands::providers::run(args, cli.dry_run),
         Commands::Splash(args) => commands::splash::run(args),
     }
 }

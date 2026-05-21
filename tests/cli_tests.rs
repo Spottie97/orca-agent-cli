@@ -674,6 +674,53 @@ fn test_orca_status_json() {
 }
 
 #[test]
+fn test_orca_providers_help() {
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["providers", "--help"]);
+    cmd.assert().success();
+}
+
+#[test]
+fn test_orca_providers() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("providers");
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Bridge Provider Diagnostics"))
+        .stdout(predicate::str::contains("claude_code"))
+        .stdout(predicate::str::contains("codex"))
+        .stdout(predicate::str::contains("cursor"));
+}
+
+#[test]
+fn test_orca_providers_json() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.arg("init");
+    cmd.current_dir(&tmp);
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("orca").unwrap();
+    cmd.args(["providers", "--json"]);
+    cmd.current_dir(&tmp);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("providers"))
+        .stdout(predicate::str::contains("claude_code"))
+        .stdout(predicate::str::contains("codex"))
+        .stdout(predicate::str::contains("cursor"));
+}
+
+#[test]
 fn test_orca_route_uses_task_graph_metadata() {
     let tmp = tempfile::tempdir().unwrap();
 

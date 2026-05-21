@@ -5,6 +5,7 @@ pub mod init;
 pub mod memory;
 pub mod patch;
 pub mod plan;
+pub mod providers;
 pub mod review;
 pub mod route;
 pub mod run;
