@@ -213,6 +213,12 @@ impl Provider for BridgeProvider {
         let input_chars = request.prompt.len();
         let output_chars = subprocess_result.stdout.len();
 
+        let bridge_diagnostics = crate::providers::traits::BridgeDiagnostics {
+            command: self.command.clone(),
+            exit_code: subprocess_result.exit_code,
+            timed_out: subprocess_result.timed_out,
+        };
+
         Ok(ProviderResponse {
             task_id: request.task_id,
             provider: self.kind,
@@ -227,6 +233,7 @@ impl Provider for BridgeProvider {
             context_packet_path: None,
             prompt_included_context: false,
             prompt_sections_included: Vec::new(),
+            bridge_diagnostics: Some(bridge_diagnostics),
         })
     }
 
@@ -272,6 +279,23 @@ mod tests {
         assert!(response.output.contains("hello from bridge"));
         assert_eq!(response.provider, ProviderKind::ClaudeCode);
         assert_eq!(response.status, ExecutionStatus::Success);
+    }
+
+    #[tokio::test]
+    async fn test_bridge_provider_populates_diagnostics() {
+        let provider = test_provider();
+        let request = ProviderRequest {
+            task_id: "TASK-001".to_string(),
+            prompt: "ignored in this test".to_string(),
+            model_id: None,
+            context: None,
+            max_tokens: None,
+        };
+        let response = provider.execute(request).await.unwrap();
+        let diag = response.bridge_diagnostics.expect("bridge_diagnostics expected");
+        assert_eq!(diag.exit_code, 0);
+        assert!(!diag.timed_out);
+        assert!(diag.command.contains("cmd") || diag.command.contains("sh"));
     }
 
     #[tokio::test]

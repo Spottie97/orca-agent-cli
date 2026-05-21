@@ -77,6 +77,13 @@ pub struct ProviderRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BridgeDiagnostics {
+    pub command: String,
+    pub exit_code: i32,
+    pub timed_out: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProviderResponse {
     pub task_id: String,
     pub provider: ProviderKind,
@@ -99,6 +106,8 @@ pub struct ProviderResponse {
     pub prompt_included_context: bool,
     #[serde(default)]
     pub prompt_sections_included: Vec<String>,
+    #[serde(default)]
+    pub bridge_diagnostics: Option<BridgeDiagnostics>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

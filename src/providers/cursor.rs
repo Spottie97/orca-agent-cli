@@ -61,6 +61,7 @@ impl Provider for CursorProvider {
             context_packet_path: None,
             prompt_included_context: false,
             prompt_sections_included: Vec::new(),
+            bridge_diagnostics: None,
         })
     }
 }

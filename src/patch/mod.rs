@@ -118,6 +118,7 @@ mod tests {
             context_packet_path: None,
             prompt_included_context: false,
             prompt_sections_included: Vec::new(),
+            bridge_diagnostics: None,
         };
 
         let proposal = PatchProposal::from_response(&response).unwrap();
@@ -143,6 +144,7 @@ mod tests {
             context_packet_path: None,
             prompt_included_context: false,
             prompt_sections_included: Vec::new(),
+            bridge_diagnostics: None,
         };
 
         assert!(PatchProposal::from_response(&response).is_none());

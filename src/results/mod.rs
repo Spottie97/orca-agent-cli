@@ -24,6 +24,8 @@ pub struct ExecutionResult {
     pub prompt_included_context: bool,
     #[serde(default)]
     pub prompt_sections_included: Vec<String>,
+    #[serde(default)]
+    pub bridge_diagnostics: Option<crate::providers::traits::BridgeDiagnostics>,
 }
 
 impl ExecutionResult {
@@ -55,6 +57,7 @@ impl ExecutionResult {
             context_packet_path: response.context_packet_path.clone(),
             prompt_included_context: response.prompt_included_context,
             prompt_sections_included: response.prompt_sections_included.clone(),
+            bridge_diagnostics: response.bridge_diagnostics.clone(),
         }
     }
 }
@@ -123,6 +126,7 @@ mod tests {
             context_packet_path: None,
             prompt_included_context: true,
             prompt_sections_included: vec!["task_metadata".to_string()],
+            bridge_diagnostics: None,
         };
 
         let result = ExecutionResult::from_response(&response);
@@ -151,6 +155,7 @@ mod tests {
             context_packet_path: None,
             prompt_included_context: false,
             prompt_sections_included: Vec::new(),
+            bridge_diagnostics: None,
         };
 
         let result = ExecutionResult::from_response(&response);
@@ -175,6 +180,7 @@ mod tests {
             context_packet_path: None,
             prompt_included_context: false,
             prompt_sections_included: Vec::new(),
+            bridge_diagnostics: None,
         };
 
         let result = ExecutionResult::from_response(&response);
@@ -205,6 +211,7 @@ mod tests {
                 "task_metadata".to_string(),
                 "execution_instructions".to_string(),
             ],
+            bridge_diagnostics: None,
         };
 
         let path = save_result(&orca_dir, &response).unwrap();
@@ -215,5 +222,35 @@ mod tests {
         let artifact: ExecutionResult = serde_json::from_str(&contents).unwrap();
         assert_eq!(artifact.task_id, "TASK-001");
         assert_eq!(artifact.duration_ms, Some(100));
+    }
+
+    #[test]
+    fn test_execution_result_preserves_bridge_diagnostics() {
+        let response = ProviderResponse {
+            task_id: "TASK-001".to_string(),
+            provider: ProviderKind::ClaudeCode,
+            model_id: "claude-code".to_string(),
+            output: "test".to_string(),
+            status: ExecutionStatus::Success,
+            files_changed: Vec::new(),
+            suggested_memory_update: None,
+            duration_ms: None,
+            input_tokens: None,
+            output_tokens: None,
+            context_packet_path: None,
+            prompt_included_context: false,
+            prompt_sections_included: Vec::new(),
+            bridge_diagnostics: Some(crate::providers::traits::BridgeDiagnostics {
+                command: "claude".to_string(),
+                exit_code: 0,
+                timed_out: false,
+            }),
+        };
+
+        let result = ExecutionResult::from_response(&response);
+        let diag = result.bridge_diagnostics.as_ref().unwrap();
+        assert_eq!(diag.command, "claude");
+        assert_eq!(diag.exit_code, 0);
+        assert!(!diag.timed_out);
     }
 }
