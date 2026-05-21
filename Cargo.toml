@@ -1,6 +1,6 @@
 [package]
 name = "orca-agent-cli"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["Orca Agent CLI Contributors"]
 description = "Orca Agent CLI — AI coding orchestration tool"
