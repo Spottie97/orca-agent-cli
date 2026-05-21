@@ -129,6 +129,19 @@ fn planning_decision(task: &Task, models: &ModelsConfig, config: &Config) -> Rou
     }
 
     if is_high {
+        if provider_enabled(ProviderKind::ClaudeCode, models) {
+            let model = model_for_provider(ProviderKind::ClaudeCode, models);
+            return RoutingDecision {
+                provider: ProviderKind::ClaudeCode,
+                model,
+                reason: "High-complexity planning routed to Claude Code bridge.".to_string(),
+                requires_approval: models.claude_code.requires_approval,
+                risk: "high".to_string(),
+                estimated_cost_class: "premium".to_string(),
+                fallback_provider: ProviderKind::Anthropic,
+                notes: vec!["Claude Code bridge selected for complex planning.".to_string()],
+            };
+        }
         if provider_enabled(ProviderKind::Anthropic, models) {
             return RoutingDecision {
                 provider: ProviderKind::Anthropic,
@@ -201,6 +214,29 @@ fn architecture_decision(task: &Task, models: &ModelsConfig) -> RoutingDecision 
 
 fn implementation_decision(task: &Task, models: &ModelsConfig, config: &Config) -> RoutingDecision {
     let repo_aware = task.requires_repo_search || task.estimated_files_touched >= 3;
+
+    // Bridge-aware routing: Codex for scoped implementation when configured
+    if !repo_aware
+        && provider_enabled(ProviderKind::Codex, models)
+        && models.codex.command.is_some()
+    {
+        let model = model_for_provider(ProviderKind::Codex, models);
+        return RoutingDecision {
+            provider: ProviderKind::Codex,
+            model,
+            reason: "Scoped implementation routed to Codex bridge.".to_string(),
+            requires_approval: models.codex.requires_approval,
+            risk: match task.risk {
+                TaskRisk::Low => "low".to_string(),
+                TaskRisk::Medium => "medium".to_string(),
+                TaskRisk::High => "high".to_string(),
+            },
+            estimated_cost_class: "standard".to_string(),
+            fallback_provider: ProviderKind::OpenAi,
+            notes: vec!["Codex bridge selected for scoped implementation.".to_string()],
+        };
+    }
+
     let config_name = if repo_aware {
         config.routing.default_repo_executor.as_str()
     } else {
@@ -459,7 +495,19 @@ mod tests {
     }
 
     #[test]
-    fn test_route_scoped_exact_to_codex() {
+    fn test_route_scoped_exact_to_codex_bridge_when_configured() {
+        let mut config = test_config();
+        config.models.codex.command = Some("codex".to_string());
+        let mut task = test_task(TaskType::Implementation);
+        task.context_is_exact = true;
+        task.estimated_files_touched = 1;
+        let decision = route(&task, &config);
+        assert_eq!(decision.provider, ProviderKind::Codex);
+        assert!(decision.reason.to_lowercase().contains("codex"));
+    }
+
+    #[test]
+    fn test_route_scoped_exact_to_openai_when_codex_bridge_not_configured() {
         let config = test_config();
         let mut task = test_task(TaskType::Implementation);
         task.context_is_exact = true;
@@ -500,7 +548,19 @@ mod tests {
     }
 
     #[test]
-    fn test_route_high_complexity_planning_to_claude() {
+    fn test_route_high_complexity_planning_to_claude_code_when_enabled() {
+        let mut config = test_config();
+        config.models.claude_code.enabled = true;
+        config.models.claude_code.command = Some("claude".to_string());
+        let mut task = test_task(TaskType::Planning);
+        task.complexity = TaskComplexity::High;
+        let decision = route(&task, &config);
+        assert_eq!(decision.provider, ProviderKind::ClaudeCode);
+        assert!(decision.reason.to_lowercase().contains("claude code"));
+    }
+
+    #[test]
+    fn test_route_high_complexity_planning_to_claude_when_claude_code_disabled() {
         let config = test_config();
         let mut task = test_task(TaskType::Planning);
         task.complexity = TaskComplexity::High;

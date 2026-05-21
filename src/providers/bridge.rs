@@ -68,6 +68,73 @@ impl BridgeProvider {
     }
 }
 
+impl BridgeProvider {
+    pub fn from_claude_code_config(
+        config: &crate::bridge::config::ExternalBridgeModelConfig,
+    ) -> Option<Self> {
+        let cmd = config.command.as_ref()?;
+        Some(
+            Self::new(
+                "claude_code",
+                ProviderKind::ClaudeCode,
+                cmd,
+                config.args.clone(),
+                config
+                    .model
+                    .clone()
+                    .unwrap_or_else(|| "claude-code".to_string()),
+            )
+            .with_stdin(config.stdin)
+            .with_timeout(config.timeout_seconds)
+            .with_max_output(config.max_output_bytes)
+            .with_env(config.env.clone())
+            .with_working_dir(config.working_directory.as_ref().map(PathBuf::from)),
+        )
+    }
+
+    pub fn from_codex_config(config: &crate::config::schema::CodexModelConfig) -> Option<Self> {
+        let cmd = config.command.as_ref()?;
+        Some(
+            Self::new(
+                "codex",
+                ProviderKind::Codex,
+                cmd,
+                config.args.clone(),
+                config
+                    .model
+                    .clone()
+                    .unwrap_or_else(|| config.default_model.clone()),
+            )
+            .with_stdin(config.stdin)
+            .with_timeout(config.timeout_seconds)
+            .with_max_output(config.max_output_bytes)
+            .with_env(config.env.clone())
+            .with_working_dir(config.working_directory.as_ref().map(PathBuf::from)),
+        )
+    }
+
+    pub fn from_cursor_config(config: &crate::config::schema::CursorModelConfig) -> Option<Self> {
+        let cmd = config.command.as_ref()?;
+        Some(
+            Self::new(
+                "cursor",
+                ProviderKind::Cursor,
+                cmd,
+                config.args.clone(),
+                config
+                    .model
+                    .clone()
+                    .unwrap_or_else(|| config.composer_model_id.clone()),
+            )
+            .with_stdin(config.stdin)
+            .with_timeout(config.timeout_seconds)
+            .with_max_output(config.max_output_bytes)
+            .with_env(config.env.clone())
+            .with_working_dir(config.working_directory.as_ref().map(PathBuf::from)),
+        )
+    }
+}
+
 #[async_trait]
 impl Provider for BridgeProvider {
     fn name(&self) -> &str {
