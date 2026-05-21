@@ -36,6 +36,31 @@ models:
     composer_model: "${CURSOR_COMPOSER_MODEL_ID}"
     premium_model: "${CURSOR_PREMIUM_MODEL_ID}"
 
+  # Phase 3 bridge providers (optional)
+  claude_code:
+    enabled: true
+    command: claude
+    args: []
+    stdin: true
+    timeout_seconds: 600
+    requires_approval: true
+    model: claude-code
+    working_directory: null
+    env: {}
+    max_output_bytes: 100000
+
+  codex:
+    enabled: true
+    command: codex
+    args: []
+    stdin: true
+    timeout_seconds: 600
+    requires_approval: true
+    model: null
+    working_directory: null
+    env: {}
+    max_output_bytes: 100000
+
 routing:
   default_provider: ollama
   budget_policy: conservative

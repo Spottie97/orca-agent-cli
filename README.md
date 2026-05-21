@@ -68,6 +68,7 @@ cargo install --path .
 - [Model routing](docs/model-routing.md)
 - [Memory system](docs/memory-system.md)
 - [Providers](docs/providers.md)
+- [Phase 3 Bridge Providers](docs/phase3-bridges.md)
 - [Ralph development workflow](docs/ralph-development-workflow.md)
 - [Cursor integration](docs/cursor-integration.md)
 
