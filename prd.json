@@ -797,6 +797,202 @@
         "cargo build"
       ],
       "passes": true
+    },
+    {
+      "id": "PHASE3-001",
+      "title": "Subprocess bridge runner",
+      "description": "Create src/bridge/ module with subprocess runner, config struct, and unit tests. Runner uses tokio::process with timeout, stdout/stderr capture, secret redaction, and structured errors.",
+      "acceptance_criteria": [
+        "src/bridge/mod.rs exports config and subprocess modules",
+        "src/bridge/config.rs defines ExternalBridgeModelConfig with serde defaults and Default impl",
+        "src/bridge/subprocess.rs implements run_subprocess with timeout, capture, redaction",
+        "SubprocessError covers CommandNotFound, Timeout, NonZeroExit, InvalidUtf8, Io, EmptyOutput",
+        "Unit tests pass for echo stdout, non-zero exit, command not found, secret redaction, stdin input",
+        "src/lib.rs registers bridge module",
+        "All existing tests continue passing"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": true
+    },
+    {
+      "id": "PHASE3-002",
+      "title": "Bridge config schema",
+      "description": "Extend ModelsConfig with ExternalBridgeModelConfig for claude_code. Add bridge fields to CursorModelConfig and CodexModelConfig. Add ProviderKind::ClaudeCode and ProviderKind::Codex. Update provider_enabled, provider_from_name, model_for_provider.",
+      "acceptance_criteria": [
+        "ModelsConfig has claude_code: ExternalBridgeModelConfig with serde(default)",
+        "CursorModelConfig extended with command, args, stdin, timeout_seconds, requires_approval, model, working_directory, env, max_output_bytes",
+        "CodexModelConfig extended with same bridge fields",
+        "ProviderKind enum has ClaudeCode and Codex variants with Display impl",
+        "provider_enabled handles ClaudeCode and Codex",
+        "provider_from_name maps claude_code and codex_bridge",
+        "model_for_provider returns correct model for new kinds",
+        "Backwards compatibility preserved: existing configs parse without changes",
+        "All existing tests continue passing"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "PHASE3-003",
+      "title": "Generic bridge provider",
+      "description": "Create BridgeProvider in src/providers/bridge.rs that implements the Provider trait using the subprocess runner. BridgeProvider constructs prompts and executes external commands, returning ProviderResponse with bridge diagnostics.",
+      "acceptance_criteria": [
+        "src/providers/bridge.rs implements Provider trait for BridgeProvider",
+        "BridgeProvider::execute calls run_subprocess with configured command, args, stdin, working_dir, env, timeout",
+        "ProviderResponse returned with correct provider kind, model, output, status",
+        "BridgeProvider handles errors gracefully (CommandNotFound maps to ProviderError::ExecutionFailed)",
+        "Factory can create BridgeProvider instances for testing",
+        "Unit tests with fake commands verify output handling",
+        "All existing tests continue passing"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "PHASE3-004",
+      "title": "Claude Code bridge provider + routing",
+      "description": "Add factory arm for ProviderKind::ClaudeCode that creates BridgeProvider from models.claude_code config. Add routing logic to select Claude Code for complex planning tasks when enabled.",
+      "acceptance_criteria": [
+        "Factory creates BridgeProvider for ProviderKind::ClaudeCode when claude_code.enabled is true",
+        "Factory falls back to MockProvider when claude_code is disabled",
+        "Routing selects Claude Code for high-complexity planning when enabled",
+        "Routing reason mentions Claude Code bridge",
+        "Model label comes from models.claude_code.model or defaults to claude-code",
+        "All existing tests continue passing"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "PHASE3-005",
+      "title": "Codex bridge provider + routing",
+      "description": "Add factory arm for ProviderKind::Codex that creates BridgeProvider from models.codex config when command is present. Add routing logic to select Codex for scoped implementation tasks when enabled.",
+      "acceptance_criteria": [
+        "Factory creates BridgeProvider for ProviderKind::Codex when codex.enabled and codex.command present",
+        "Factory falls back to MockProvider when codex bridge is not configured",
+        "Routing selects Codex for scoped implementation when enabled",
+        "Model label comes from models.codex.model or falls back to models.codex.default_model",
+        "All existing tests continue passing"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "PHASE3-006",
+      "title": "Cursor Composer bridge provider + routing",
+      "description": "Extend factory ProviderKind::Cursor arm to create BridgeProvider when models.cursor.command is present and enabled. Preserve existing placeholder behavior when bridge is not configured.",
+      "acceptance_criteria": [
+        "Factory creates BridgeProvider for ProviderKind::Cursor when cursor.enabled and cursor.command present",
+        "Factory preserves existing CursorProvider placeholder when bridge not configured",
+        "Existing cursor routing continues to work unchanged",
+        "Model label uses models.cursor.model if present, else falls back to composer_model_id",
+        "All existing tests continue passing"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "PHASE3-007",
+      "title": "Approval gates for bridge providers",
+      "description": "Extend approval gate to block all bridge providers by default (ClaudeCode, Codex, Cursor bridge mode) unless --yes is passed. Respect provider-specific requires_approval config.",
+      "acceptance_criteria": [
+        "check_approval blocks ClaudeCode, Codex, and Cursor bridge when requires_approval is true",
+        "Bypass flag --yes allows all bridge providers",
+        "Disabled bridge providers do not trigger approval blocks",
+        "Existing approval checks (premium cursor, high-risk, destructive) continue to work",
+        "All existing tests continue passing"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "PHASE3-008",
+      "title": "CLI diagnostics / provider availability check",
+      "description": "Add orca providers subcommand or extend orca status to show which bridge providers are configured, enabled, and whether their commands are available on PATH.",
+      "acceptance_criteria": [
+        "CLI shows bridge provider config summary (enabled, command, model)",
+        "Command availability checked on PATH where possible",
+        "Dry-run mode shows approval requirements for each bridge provider",
+        "All existing tests continue passing"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "PHASE3-009",
+      "title": "Result/review integration polish",
+      "description": "Add bridge diagnostics to ProviderResponse (command, exit_code, timed_out). Ensure review pipeline handles bridge results correctly including exact-output criteria.",
+      "acceptance_criteria": [
+        "ProviderResponse includes optional bridge diagnostics field",
+        "Review handles bridge results with exact-output criteria",
+        "Result artifacts include bridge metadata when available",
+        "All existing tests continue passing"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
+    },
+    {
+      "id": "PHASE3-010",
+      "title": "Documentation",
+      "description": "Write docs/phase3-bridges.md documenting how to configure and use Claude Code, Codex, and Cursor Composer bridges. Update README.md and docs/providers.md.",
+      "acceptance_criteria": [
+        "docs/phase3-bridges.md covers config schema, routing, approval gates, diagnostics",
+        "README.md updated with bridge provider section",
+        "docs/providers.md updated with bridge provider details",
+        "All existing tests continue passing"
+      ],
+      "quality_checks": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-features",
+        "cargo build"
+      ],
+      "passes": false
     }
   ]
 }

@@ -66,3 +66,19 @@ Stories completed:
 - HOTFIX-005: Add optional bearer auth to OllamaProvider
 - HOTFIX-006: Fix acceptance criteria propagation and make review fail closed (3a62bbd)
 - HOTFIX-007: Fix exact-output acceptance criteria enforcement (6f195a6)
+
+Stories completed:
+- PHASE3-001: Subprocess bridge runner (9090511)
+
+Current story:
+- PHASE3-002: Bridge config schema
+
+Next stories:
+- PHASE3-003: Generic bridge provider
+- PHASE3-004: Claude Code bridge provider + routing
+- PHASE3-005: Codex bridge provider + routing
+- PHASE3-006: Cursor Composer bridge provider + routing
+- PHASE3-007: Approval gates for bridge providers
+- PHASE3-008: CLI diagnostics / provider availability check
+- PHASE3-009: Result/review integration polish
+- PHASE3-010: Documentation
