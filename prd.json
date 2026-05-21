@@ -840,7 +840,7 @@
         "cargo test --all-features",
         "cargo build"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "PHASE3-003",
@@ -861,7 +861,7 @@
         "cargo test --all-features",
         "cargo build"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "PHASE3-004",
@@ -881,7 +881,7 @@
         "cargo test --all-features",
         "cargo build"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "PHASE3-005",
@@ -900,7 +900,7 @@
         "cargo test --all-features",
         "cargo build"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "PHASE3-006",
@@ -919,7 +919,7 @@
         "cargo test --all-features",
         "cargo build"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "PHASE3-007",
@@ -938,7 +938,7 @@
         "cargo test --all-features",
         "cargo build"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "PHASE3-008",
@@ -956,7 +956,7 @@
         "cargo test --all-features",
         "cargo build"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "PHASE3-009",
@@ -974,7 +974,7 @@
         "cargo test --all-features",
         "cargo build"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "PHASE3-010",
@@ -992,7 +992,7 @@
         "cargo test --all-features",
         "cargo build"
       ],
-      "passes": false
+      "passes": true
     }
   ]
 }
