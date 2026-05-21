@@ -45,8 +45,10 @@ Orca Core (Rust)
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalBridgeModelConfig {
+    #[serde(default)]
     pub enabled: bool,
     pub command: Option<String>,
+    #[serde(default)]
     pub args: Vec<String>,
     #[serde(default = "default_stdin_true")]
     pub stdin: bool,
@@ -62,6 +64,11 @@ pub struct ExternalBridgeModelConfig {
     pub max_output_bytes: usize,
 }
 ```
+
+Notes:
+- `enabled` defaults to `false`.
+- `args` defaults to an empty vector.
+- Only `enabled: true` requires `command` to be present.
 
 ### YAML Shape
 
@@ -104,6 +111,14 @@ models:
 - `enabled: false` means incomplete config is acceptable.
 - `enabled: true` requires `command` present; validation errors are clear.
 
+### Cursor Model Fallback
+
+For `models.cursor` in bridge mode:
+- `model` field is used if present.
+- If `model` is absent, fall back to `composer_model` if present.
+- `premium_model` remains parsed for backwards compatibility but is not used for Phase 3 routing unless existing code already uses it.
+- `composer_model` and `premium_model` are not removed.
+
 ## Provider Integration
 
 ### Provider Name Derivation
@@ -141,7 +156,10 @@ All bridge providers default to `requires_approval: true`. Approval gate blocks 
 - Executes `command` directly as argv[0], with `args` as subsequent entries.
 - No shell interpolation.
 - Supports stdin input (prompt text).
-- Supports working directory override.
+- Supports working directory override:
+  - If `working_directory` is `None`, run from the Orca project root.
+  - If `working_directory` is `Some(path)`, resolve relative paths against the Orca project root.
+  - Never resolve relative paths against an arbitrary current shell directory.
 - Supports environment variable injection.
 - Captures stdout and stderr separately.
 - Distinguishes: command not found, timeout, non-zero exit, invalid UTF-8, empty output.
